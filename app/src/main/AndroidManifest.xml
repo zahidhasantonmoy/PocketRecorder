@@ -40,8 +40,12 @@
             android:theme="@style/Theme.PocketRecorder" />
 
         <service
-            android:name=".TapDetectionService"
+            android:name=".service.TapDetectionService"
             android:foregroundServiceType="sensor"
+            android:exported="false" />
+
+        <service
+            android:name=".service.VoiceCommandService"
             android:exported="false" />
 
     </application>

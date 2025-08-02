@@ -26,6 +26,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.TextField
 import androidx.compose.ui.res.stringResource
+import androidx.compose.material3.Switch
 import com.example.pocketrecorder.ui.theme.PocketRecorderTheme
 
 class SettingsActivity : ComponentActivity() {
@@ -58,6 +59,10 @@ fun SettingsScreen(sharedPreferences: SharedPreferences) {
     val recordingQualities = listOf("low", "medium", "high")
     var selectedRecordingQuality by remember { mutableStateOf(sharedPreferences.getString("recording_quality", "medium") ?: "medium") }
     var expandedQuality by remember { mutableStateOf(false) }
+
+    var voiceCommandEnabled by remember { mutableStateOf(sharedPreferences.getBoolean("voice_command_enabled", false)) }
+    var customPassphrase by remember { mutableStateOf(sharedPreferences.getString("custom_passphrase", "start recording") ?: "start recording") }
+    var voiceSensitivity by remember { mutableStateOf(sharedPreferences.getFloat("voice_sensitivity", 0.5f)) }
 
     Scaffold(
         topBar = {
@@ -184,6 +189,34 @@ fun SettingsScreen(sharedPreferences: SharedPreferences) {
             }
             Spacer(modifier = Modifier.height(16.dp))
 
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Enable Voice Command")
+                Spacer(Modifier.weight(1f))
+                Switch(
+                    checked = voiceCommandEnabled,
+                    onCheckedChange = { voiceCommandEnabled = it }
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            TextField(
+                value = customPassphrase,
+                onValueChange = { customPassphrase = it },
+                label = { Text("Custom Passphrase") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text("Voice Sensitivity: ${"%.1f".format(voiceSensitivity)}")
+            Slider(
+                value = voiceSensitivity,
+                onValueChange = { voiceSensitivity = it },
+                valueRange = 0.1f..1.0f,
+                steps = 9,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
             Button(onClick = {
                 with(sharedPreferences.edit()) {
                     putFloat("sensitivity_threshold", sensitivity)
@@ -192,11 +225,7 @@ fun SettingsScreen(sharedPreferences: SharedPreferences) {
                     putString("start_vibration_pattern", selectedVibrationPattern)
                     putInt("retention_period_days", selectedRetentionPeriod)
                     putString("recording_quality", selectedRecordingQuality)
+                    putBoolean("voice_command_enabled", voiceCommandEnabled)
+                    putString("custom_passphrase", customPassphrase)
+                    putFloat("voice_sensitivity", voiceSensitivity)
                     apply()
-                }
-            }) {
-                Text("Save Settings")
-            }
-        }
-    }
-}

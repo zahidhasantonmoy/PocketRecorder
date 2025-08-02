@@ -132,6 +132,16 @@ fun MainScreen() {
             Text("Stop Tap Detection Service")
         }
         Button(onClick = {
+            context.startService(Intent(context, com.example.pocketrecorder.service.VoiceCommandService::class.java))
+        }) {
+            Text("Start Voice Command Service")
+        }
+        Button(onClick = {
+            context.stopService(Intent(context, com.example.pocketrecorder.service.VoiceCommandService::class.java))
+        }) {
+            Text("Stop Voice Command Service")
+        }
+        Button(onClick = {
             context.startActivity(Intent(context, SettingsActivity::class.java))
         }) {
             Text("Open Settings")
