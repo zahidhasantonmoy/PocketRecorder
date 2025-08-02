@@ -186,11 +186,23 @@ class TapDetectionService : Service(), SensorEventListener {
         if (action != ActionType.NONE) {
             Log.d("TapDetectionService", "Triggering action: $action")
             // Vibrate to confirm action
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator.vibrate(100)
+            val notificationEnabled = sharedPreferences.getBoolean("notification_enabled", true)
+            if (notificationEnabled) {
+                val startVibrationPattern = sharedPreferences.getString("start_vibration_pattern", "short")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    when (startVibrationPattern) {
+                        "short" -> vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE))
+                        "long" -> vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE))
+                        else -> vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE))
+                    }
+                } else {
+                    @Suppress("DEPRECATION")
+                    when (startVibrationPattern) {
+                        "short" -> vibrator.vibrate(100)
+                        "long" -> vibrator.vibrate(500)
+                        else -> vibrator.vibrate(100)
+                    }
+                }
             }
 
             // Get location and save to database

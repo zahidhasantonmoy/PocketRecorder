@@ -16,6 +16,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.Switch
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.semantics.Role
 import com.example.pocketrecorder.ui.theme.PocketRecorderTheme
 
 class SettingsActivity : ComponentActivity() {
@@ -39,6 +45,9 @@ class SettingsActivity : ComponentActivity() {
 fun SettingsScreen(sharedPreferences: SharedPreferences) {
     var sensitivity by remember { mutableStateOf(sharedPreferences.getFloat("sensitivity_threshold", 10f)) }
     var timeWindow by remember { mutableStateOf(sharedPreferences.getLong("time_window", 1000L).toFloat()) }
+    var notificationEnabled by remember { mutableStateOf(sharedPreferences.getBoolean("notification_enabled", true)) }
+    val vibrationOptions = listOf("short", "long")
+    var selectedVibrationPattern by remember { mutableStateOf(sharedPreferences.getString("start_vibration_pattern", "short") ?: "short") }
 
     Scaffold(
         topBar = {
@@ -74,10 +83,45 @@ fun SettingsScreen(sharedPreferences: SharedPreferences) {
             )
             Spacer(modifier = Modifier.height(16.dp))
 
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Enable Notifications")
+                Spacer(Modifier.weight(1f))
+                Switch(
+                    checked = notificationEnabled,
+                    onCheckedChange = { notificationEnabled = it }
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text("Vibration Pattern for Start")
+            Row(Modifier.selectableGroup()) {
+                vibrationOptions.forEach { text ->
+                    Row(
+                        Modifier
+                            .selectable(
+                                selected = (text == selectedVibrationPattern),
+                                onClick = { selectedVibrationPattern = text },
+                                role = Role.RadioButton
+                            )
+                            .padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = (text == selectedVibrationPattern),
+                            onClick = null // null recommended for accessibility with screenreaders
+                        )
+                        Text(text = text)
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+
             Button(onClick = {
                 with(sharedPreferences.edit()) {
                     putFloat("sensitivity_threshold", sensitivity)
                     putLong("time_window", timeWindow.toLong())
+                    putBoolean("notification_enabled", notificationEnabled)
+                    putString("start_vibration_pattern", selectedVibrationPattern)
                     apply()
                 }
             }) {
