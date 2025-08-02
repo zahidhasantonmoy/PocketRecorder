@@ -18,6 +18,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.pocketrecorder.ActionType
 import com.example.pocketrecorder.R
+import kotlin.math.sqrt
 
 class TapDetectionService : Service(), SensorEventListener {
 
@@ -33,8 +34,8 @@ class TapDetectionService : Service(), SensorEventListener {
     private var isUpright: Boolean = false
 
     // Tap detection variables
-    private val ACCELERATION_THRESHOLD = 10.0f // m/s^2, adjust as needed
-    private val TAP_TIME_WINDOW_MS = 1000L // 1 second
+    private var sensitivityThreshold: Float = 10f // m/s^2
+    private var timeWindow: Long = 1000 // milliseconds
     private var lastTapTime: Long = 0L
     private var tapCount: Int = 0
     private var lastX: Float = 0f
@@ -68,6 +69,7 @@ class TapDetectionService : Service(), SensorEventListener {
             @Suppress("DEPRECATION")
             getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         }
+        loadSettings()
     }
 
     override fun onBind(intent: Intent): IBinder? {
@@ -109,11 +111,11 @@ class TapDetectionService : Service(), SensorEventListener {
                     lastY = y
                     lastZ = z
 
-                    val acceleration = Math.sqrt((deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ).toDouble()).toFloat()
+                    val acceleration = sqrt((deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ).toDouble()).toFloat()
 
-                    if (acceleration > ACCELERATION_THRESHOLD) {
+                    if (acceleration > sensitivityThreshold) {
                         val currentTime = System.currentTimeMillis()
-                        if (currentTime - lastTapTime < TAP_TIME_WINDOW_MS) {
+                        if (currentTime - lastTapTime < timeWindow) {
                             tapCount++
                         } else {
                             tapCount = 1 // Start a new tap sequence
@@ -134,6 +136,9 @@ class TapDetectionService : Service(), SensorEventListener {
                     val roll = it.values[2] // Rotation around Y-axis
                     isUpright = pitch > -45 && pitch < 45 && roll > -45 && roll < 45
                     Log.d("TapDetectionService", "Orientation: isUpright=$isUpright (pitch=$pitch, roll=$roll)")
+                }
+                else -> {
+                    // Do nothing for other sensor types
                 }
             }
         }
@@ -169,7 +174,16 @@ class TapDetectionService : Service(), SensorEventListener {
             }
             // Reset tap count after action is triggered
             tapCount = 0
+        } else {
+            // Do nothing if action is NONE
         }
+    }
+
+    private fun loadSettings() {
+        val sharedPreferences = getSharedPreferences("PocketRecorderSettings", Context.MODE_PRIVATE)
+        sensitivityThreshold = sharedPreferences.getFloat("sensitivity_threshold", 10f)
+        timeWindow = sharedPreferences.getLong("time_window", 1000L)
+        Log.d("TapDetectionService", "Settings loaded: sensitivityThreshold=$sensitivityThreshold, timeWindow=$timeWindow")
     }
 
     override fun onDestroy() {
