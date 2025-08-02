@@ -211,6 +211,23 @@ class TapDetectionService : Service(), SensorEventListener {
                 fusedLocationClient.lastLocation
                     .addOnSuccessListener { location: Location? ->
                         val currentTime = System.currentTimeMillis()
+                        val fileExtension = when (action) {
+                            ActionType.IMAGE_CAPTURE -> ".jpg"
+                            ActionType.AUDIO_RECORDING -> ".mp3"
+                            ActionType.VIDEO_RECORDING -> ".mp4"
+                            else -> ".bin"
+                        }
+                        val directory = File(filesDir, action.name.toLowerCase())
+                        if (!directory.exists()) directory.mkdirs()
+                        val originalFile = File(directory, "recording_${currentTime}${fileExtension}")
+                        FileOutputStream(originalFile).use { it.write("This is a dummy recording.".toByteArray()) }
+
+                        val encryptedFilePath = File(directory, "encrypted_recording_${currentTime}${fileExtension}.enc").absolutePath
+                        val encryptedFile = File(encryptedFilePath)
+                        fileEncryptionManager.encryptFile(originalFile, encryptedFile)
+                        originalFile.delete() // Delete original unencrypted file
+                        Log.d("TapDetectionService", "Dummy file encrypted to ${encryptedFile.absolutePath}")
+
                         val recordedFile = RecordedFile(
                             filePath = encryptedFilePath,
                             fileType = action.name,
@@ -223,15 +240,6 @@ class TapDetectionService : Service(), SensorEventListener {
                             db.recordedFileDao().insertRecordedFile(recordedFile)
                             Log.d("TapDetectionService", "Recorded file metadata saved: $recordedFile")
                         }
-
-                        // Placeholder for actual file creation and encryption
-                        val dummyFile = File(filesDir, "dummy_recording_${currentTime}.tmp")
-                        FileOutputStream(dummyFile).use { it.write("This is a dummy recording.".toByteArray()) }
-                        val encryptedFile = File(filesDir, "encrypted_recording_${currentTime}.enc")
-                        fileEncryptionManager.encryptFile(dummyFile, encryptedFile)
-                        dummyFile.delete() // Delete original unencrypted file
-                        Log.d("TapDetectionService", "Dummy file encrypted to ${encryptedFile.absolutePath}")
-                    }
                     .addOnFailureListener { e ->
                         Log.e("TapDetectionService", "Failed to get location: ${e.message}")
                     }

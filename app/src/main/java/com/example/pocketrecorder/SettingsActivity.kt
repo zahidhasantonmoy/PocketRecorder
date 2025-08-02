@@ -16,12 +16,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.material3.Switch
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.semantics.Role
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.TextField
+import androidx.compose.ui.res.stringResource
 import com.example.pocketrecorder.ui.theme.PocketRecorderTheme
 
 class SettingsActivity : ComponentActivity() {
@@ -48,6 +52,12 @@ fun SettingsScreen(sharedPreferences: SharedPreferences) {
     var notificationEnabled by remember { mutableStateOf(sharedPreferences.getBoolean("notification_enabled", true)) }
     val vibrationOptions = listOf("short", "long")
     var selectedVibrationPattern by remember { mutableStateOf(sharedPreferences.getString("start_vibration_pattern", "short") ?: "short") }
+    val retentionPeriods = listOf(7, 30, 60)
+    var selectedRetentionPeriod by remember { mutableStateOf(sharedPreferences.getInt("retention_period_days", 30)) }
+    var expandedRetention by remember { mutableStateOf(false) }
+    val recordingQualities = listOf("low", "medium", "high")
+    var selectedRecordingQuality by remember { mutableStateOf(sharedPreferences.getString("recording_quality", "medium") ?: "medium") }
+    var expandedQuality by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -116,12 +126,72 @@ fun SettingsScreen(sharedPreferences: SharedPreferences) {
             }
             Spacer(modifier = Modifier.height(16.dp))
 
+            ExposedDropdownMenuBox(
+                expanded = expandedRetention,
+                onExpandedChange = { expandedRetention = !expandedRetention }
+            ) {
+                TextField(
+                    value = "$selectedRetentionPeriod days",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Retention Period") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedRetention) },
+                    modifier = Modifier.fillMaxWidth().menuAnchor()
+                )
+                ExposedDropdownMenu(
+                    expanded = expandedRetention,
+                    onDismissRequest = { expandedRetention = false }
+                ) {
+                    retentionPeriods.forEach { selectionOption ->
+                        DropdownMenuItem(
+                            text = { Text("$selectionOption days") },
+                            onClick = {
+                                selectedRetentionPeriod = selectionOption
+                                expandedRetention = false
+                            }
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            ExposedDropdownMenuBox(
+                expanded = expandedQuality,
+                onExpandedChange = { expandedQuality = !expandedQuality }
+            ) {
+                TextField(
+                    value = selectedRecordingQuality,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Recording Quality") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedQuality) },
+                    modifier = Modifier.fillMaxWidth().menuAnchor()
+                )
+                ExposedDropdownMenu(
+                    expanded = expandedQuality,
+                    onDismissRequest = { expandedQuality = false }
+                ) {
+                    recordingQualities.forEach { selectionOption ->
+                        DropdownMenuItem(
+                            text = { Text(selectionOption) },
+                            onClick = {
+                                selectedRecordingQuality = selectionOption
+                                expandedQuality = false
+                            }
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+
             Button(onClick = {
                 with(sharedPreferences.edit()) {
                     putFloat("sensitivity_threshold", sensitivity)
                     putLong("time_window", timeWindow.toLong())
                     putBoolean("notification_enabled", notificationEnabled)
                     putString("start_vibration_pattern", selectedVibrationPattern)
+                    putInt("retention_period_days", selectedRetentionPeriod)
+                    putString("recording_quality", selectedRecordingQuality)
                     apply()
                 }
             }) {

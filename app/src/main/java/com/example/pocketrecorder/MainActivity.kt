@@ -24,7 +24,10 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.pocketrecorder.ui.theme.PocketRecorderTheme
 import java.util.concurrent.Executor
-import java.util.concurrent.Executors
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.example.pocketrecorder.worker.FileManagementWorker
+import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
 
@@ -68,6 +71,11 @@ class MainActivity : ComponentActivity() {
 
         // Show biometric prompt on app start
         biometricPrompt.authenticate(promptInfo)
+
+        // Schedule periodic file cleanup
+        val cleanupWorkRequest = PeriodicWorkRequestBuilder<FileManagementWorker>(1, TimeUnit.DAYS)
+            .build()
+        WorkManager.getInstance(applicationContext).enqueue(cleanupWorkRequest)
 
         setContent {
             PocketRecorderTheme {
