@@ -24,11 +24,14 @@ import com.example.pocketrecorder.ActionType
 import com.example.pocketrecorder.R
 import com.example.pocketrecorder.data.AppDatabase
 import com.example.pocketrecorder.data.RecordedFile
+import com.example.pocketrecorder.security.FileEncryptionManager
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.io.File
+import java.io.FileOutputStream
 import kotlin.math.sqrt
 
 class TapDetectionService : Service(), SensorEventListener {
@@ -41,6 +44,7 @@ class TapDetectionService : Service(), SensorEventListener {
     private lateinit var vibrator: Vibrator
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var db: AppDatabase
+    private lateinit var fileEncryptionManager: FileEncryptionManager
 
     // Sensor states
     private var isNear: Boolean = false
@@ -84,6 +88,7 @@ class TapDetectionService : Service(), SensorEventListener {
         }
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         db = AppDatabase.getDatabase(this)
+        fileEncryptionManager = FileEncryptionManager(this)
         loadSettings()
     }
 
@@ -195,17 +200,25 @@ class TapDetectionService : Service(), SensorEventListener {
                     .addOnSuccessListener { location: Location? ->
                         val currentTime = System.currentTimeMillis()
                         val recordedFile = RecordedFile(
-                            filePath = "path/to/file_${currentTime}.mp3", // Placeholder
+                            filePath = encryptedFilePath,
                             fileType = action.name,
                             timestamp = currentTime,
                             latitude = location?.latitude,
                             longitude = location?.longitude,
-                            isEncrypted = false // Placeholder
+                            isEncrypted = true
                         )
                         CoroutineScope(Dispatchers.IO).launch {
                             db.recordedFileDao().insertRecordedFile(recordedFile)
                             Log.d("TapDetectionService", "Recorded file metadata saved: $recordedFile")
                         }
+
+                        // Placeholder for actual file creation and encryption
+                        val dummyFile = File(filesDir, "dummy_recording_${currentTime}.tmp")
+                        FileOutputStream(dummyFile).use { it.write("This is a dummy recording.".toByteArray()) }
+                        val encryptedFile = File(filesDir, "encrypted_recording_${currentTime}.enc")
+                        fileEncryptionManager.encryptFile(dummyFile, encryptedFile)
+                        dummyFile.delete() // Delete original unencrypted file
+                        Log.d("TapDetectionService", "Dummy file encrypted to ${encryptedFile.absolutePath}")
                     }
                     .addOnFailureListener { e ->
                         Log.e("TapDetectionService", "Failed to get location: ${e.message}")

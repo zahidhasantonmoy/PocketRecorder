@@ -6,6 +6,8 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.biometric.BiometricPrompt
+import androidx.biometric.BiometricManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,14 +23,52 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.pocketrecorder.ui.theme.PocketRecorderTheme
+import java.util.concurrent.Executor
+import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
 
     private val LOCATION_PERMISSION_REQUEST_CODE = 1001
+    private lateinit var executor: Executor
+    private lateinit var biometricPrompt: BiometricPrompt
+    private lateinit var promptInfo: BiometricPrompt.PromptInfo
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestLocationPermissions()
+
+        executor = ContextCompat.getMainExecutor(this)
+        biometricPrompt = BiometricPrompt(this, executor,
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    super.onAuthenticationError(errorCode, errString)
+                    // Handle authentication error
+                    // For now, we'll just log it
+                    println("Authentication error: $errString")
+                }
+
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    super.onAuthenticationSucceeded(result)
+                    // Authentication successful, proceed with app
+                    println("Authentication succeeded!")
+                }
+
+                override fun onAuthenticationFailed() {
+                    super.onAuthenticationFailed()
+                    // Authentication failed
+                    println("Authentication failed.")
+                }
+            })
+
+        promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("PocketRecorder Authentication")
+            .setSubtitle("Authenticate to access PocketRecorder")
+            .setNegativeButtonText("Cancel")
+            .build()
+
+        // Show biometric prompt on app start
+        biometricPrompt.authenticate(promptInfo)
+
         setContent {
             PocketRecorderTheme {
                 // A surface container using the 'background' color from the theme
