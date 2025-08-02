@@ -14,10 +14,21 @@ import android.os.IBinder
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.Manifest
+import android.content.pm.PackageManager
+import android.location.Location
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.example.pocketrecorder.ActionType
 import com.example.pocketrecorder.R
+import com.example.pocketrecorder.data.AppDatabase
+import com.example.pocketrecorder.data.RecordedFile
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlin.math.sqrt
 
 class TapDetectionService : Service(), SensorEventListener {
@@ -28,6 +39,8 @@ class TapDetectionService : Service(), SensorEventListener {
     private var proximitySensor: Sensor? = null
     private var orientationSensor: Sensor? = null
     private lateinit var vibrator: Vibrator
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private lateinit var db: AppDatabase
 
     // Sensor states
     private var isNear: Boolean = false
@@ -69,6 +82,8 @@ class TapDetectionService : Service(), SensorEventListener {
             @Suppress("DEPRECATION")
             getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         }
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        db = AppDatabase.getDatabase(this)
         loadSettings()
     }
 
@@ -172,6 +187,33 @@ class TapDetectionService : Service(), SensorEventListener {
                 @Suppress("DEPRECATION")
                 vibrator.vibrate(100)
             }
+
+            // Get location and save to database
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                fusedLocationClient.lastLocation
+                    .addOnSuccessListener { location: Location? ->
+                        val currentTime = System.currentTimeMillis()
+                        val recordedFile = RecordedFile(
+                            filePath = "path/to/file_${currentTime}.mp3", // Placeholder
+                            fileType = action.name,
+                            timestamp = currentTime,
+                            latitude = location?.latitude,
+                            longitude = location?.longitude,
+                            isEncrypted = false // Placeholder
+                        )
+                        CoroutineScope(Dispatchers.IO).launch {
+                            db.recordedFileDao().insertRecordedFile(recordedFile)
+                            Log.d("TapDetectionService", "Recorded file metadata saved: $recordedFile")
+                        }
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("TapDetectionService", "Failed to get location: ${e.message}")
+                    }
+            } else {
+                Log.w("TapDetectionService", "Location permissions not granted. Cannot save location metadata.")
+            }
+
             // Reset tap count after action is triggered
             tapCount = 0
         } else {
