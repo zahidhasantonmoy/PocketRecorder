@@ -1,1 +1,1 @@
-Initial commit after reinitializing Git and refining tap detection logic.
+Update typography to include a wider range of styles for a modern UI.

@@ -33,6 +33,7 @@ import com.pocketrecorder.data.Contact
 import com.pocketrecorder.data.Location as AppLocation
 import com.pocketrecorder.utils.CameraUtil
 import com.pocketrecorder.utils.RecorderUtil
+
 import com.pocketrecorder.utils.VoiceUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -177,6 +178,9 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
     }
 
     private fun startAudioRecording() {
+        if (mediaRecorder != null) {
+            stopAudioRecording()
+        }
         mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             MediaRecorder(applicationContext)
         } else {
@@ -193,6 +197,11 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
                 start()
                 saveLocation()
                 updateNotification("Audio recording started.")
+                // Stop recording after 30 seconds to prevent excessively long recordings
+                lifecycleScope.launch {
+                    kotlinx.coroutines.delay(30000) // 30 seconds
+                    stopAudioRecording()
+                }
             } catch (e: IOException) {
                 Log.e("PocketRecorder", "Error starting audio recording", e)
             }
@@ -316,5 +325,6 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
         sensorManager.unregisterListener(this)
         stopAudioRecording()
         stopVideoRecording()
+        // No explicit stop for image capture needed as it's a single shot
     }
 }

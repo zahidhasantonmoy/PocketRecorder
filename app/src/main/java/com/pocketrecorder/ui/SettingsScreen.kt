@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.pocketrecorder.data.AppDatabase
@@ -188,6 +189,7 @@ fun EmergencyContacts(context: Context) {
     var contacts by remember { mutableStateOf(emptyList<Contact>()) }
     var newContactName by remember { mutableStateOf("") }
     var newContactNumber by remember { mutableStateOf("") }
+    val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         contacts = contactDao.getAllContacts()
@@ -201,7 +203,7 @@ fun EmergencyContacts(context: Context) {
                 Text("${contact.name} (${contact.phoneNumber})")
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = {
-                    scope.launch {
+                coroutineScope.launch {
                         contactDao.delete(contact)
                         contacts = contactDao.getAllContacts()
                     }
@@ -225,7 +227,7 @@ fun EmergencyContacts(context: Context) {
         )
         Button(onClick = {
             if (newContactName.isNotBlank() && newContactNumber.isNotBlank()) {
-                scope.launch {
+                coroutineScope.launch {
                     contactDao.insert(Contact(name = newContactName, phoneNumber = newContactNumber))
                     contacts = contactDao.getAllContacts()
                     newContactName = ""

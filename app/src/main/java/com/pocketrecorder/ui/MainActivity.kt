@@ -69,12 +69,3 @@ fun PocketRecorderApp(tutorialShown: Boolean, onTutorialComplete: () -> Unit) {
     }
 }
 
-@Composable
-fun HomeScreen(navController: NavController) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        Text(text = "PocketRecorder is active.")
-        Button(onClick = { navController.navigate("settings") }) {
-            Text("Settings")
-        }
-    }
-}

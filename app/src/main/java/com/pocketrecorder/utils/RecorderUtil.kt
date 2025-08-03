@@ -15,10 +15,8 @@ object RecorderUtil {
         val audioDir = File(context.filesDir, "audio")
         if (!audioDir.exists()) {
             audioDir.mkdirs()
-            File(audioDir, ".nomedia").createNewFile()
         }
-        val file = File(audioDir, "audio_$timeStamp.mp3")
-        return SecurityUtil.getEncryptedFile(context, file).file
+        return File(audioDir, "audio_$timeStamp.mp3")
     }
 
     fun createVideoFile(context: Context): File {
@@ -26,10 +24,8 @@ object RecorderUtil {
         val videoDir = File(context.filesDir, "video")
         if (!videoDir.exists()) {
             videoDir.mkdirs()
-            File(videoDir, ".nomedia").createNewFile()
         }
-        val file = File(videoDir, "video_$timeStamp.mp4")
-        return SecurityUtil.getEncryptedFile(context, file).file
+        return File(videoDir, "video_$timeStamp.mp4")
     }
 
     fun createImageFile(context: Context): File {
@@ -37,9 +33,7 @@ object RecorderUtil {
         val imageDir = File(context.filesDir, "image")
         if (!imageDir.exists()) {
             imageDir.mkdirs()
-            File(imageDir, ".nomedia").createNewFile()
         }
-        val file = File(imageDir, "image_$timeStamp.jpg")
-        return SecurityUtil.getEncryptedFile(context, file).file
+        return File(imageDir, "image_$timeStamp.jpg")
     }
 }
