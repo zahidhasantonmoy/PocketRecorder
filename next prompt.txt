@@ -1,0 +1,3 @@
+Reinitialize the git and make git commit and push and  read the readme.md , make sure all features are   │
+│    avalaiable and working  and git commit after new file or edit file and design mordern ui ux beautiful    │
+│    design and customization , complete the project and run  
