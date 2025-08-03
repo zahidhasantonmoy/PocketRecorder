@@ -190,6 +190,7 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
                 prepare()
                 start()
                 saveLocation()
+                updateNotification("Audio recording started.")
             } catch (e: IOException) {
                 Log.e("PocketRecorder", "Error starting audio recording", e)
             }
@@ -216,6 +217,7 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
         mediaRecorder?.apply {
             stop()
             release()
+            updateNotification("Audio recording stopped.")
         }
         mediaRecorder = null
     }
@@ -225,11 +227,13 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
         CameraUtil.startRecordingVideo(applicationContext, this, videoFile) {
             // Handle video recorded callback
             saveLocation()
+            updateNotification("Video recording started.")
         }
     }
 
     private fun stopVideoRecording() {
         CameraUtil.stopRecordingVideo()
+        updateNotification("Video recording stopped.")
     }
 
     private fun captureImage() {
@@ -237,6 +241,7 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
         CameraUtil.captureImage(applicationContext, this, imageFile) {
             // Handle image captured callback
             saveLocation()
+            updateNotification("Image captured.")
         }
     }
 
@@ -285,7 +290,7 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
-    private fun createNotification(): Notification {
+    private fun createNotification(message: String = "Actively listening for tap patterns."): Notification {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel("tap_detection", "Tap Detection", NotificationManager.IMPORTANCE_DEFAULT)
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -294,8 +299,14 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
 
         return NotificationCompat.Builder(this, "tap_detection")
             .setContentTitle(getString(R.string.app_name))
-            .setContentText("Actively listening for tap patterns.")
+            .setContentText(message)
             .build()
+    }
+
+    private fun updateNotification(message: String) {
+        val notification = createNotification(message)
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.notify(1, notification)
     }
 
     override fun onDestroy() {
