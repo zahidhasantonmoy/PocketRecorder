@@ -189,9 +189,26 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
             try {
                 prepare()
                 start()
+                saveLocation()
             } catch (e: IOException) {
                 Log.e("PocketRecorder", "Error starting audio recording", e)
             }
+        }
+    }
+
+    private fun saveLocation() {
+        if (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
+                location?.let {
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        val appLocation = AppLocation(latitude = it.latitude, longitude = it.longitude, timestamp = System.currentTimeMillis())
+                        AppDatabase.getDatabase(applicationContext).locationDao().insert(appLocation)
+                        Log.d("PocketRecorder", "Location saved: ${it.latitude}, ${it.longitude}")
+                    }
+                }
+            }
+        } else {
+            Log.e("PocketRecorder", "Location permission not granted. Cannot save location.")
         }
     }
 
@@ -207,6 +224,7 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
         val videoFile = RecorderUtil.createVideoFile(applicationContext)
         CameraUtil.startRecordingVideo(applicationContext, this, videoFile) {
             // Handle video recorded callback
+            saveLocation()
         }
     }
 
@@ -218,6 +236,7 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
         val imageFile = RecorderUtil.createImageFile(applicationContext)
         CameraUtil.captureImage(applicationContext, this, imageFile) {
             // Handle image captured callback
+            saveLocation()
         }
     }
 
