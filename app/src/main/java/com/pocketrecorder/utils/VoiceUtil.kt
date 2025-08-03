@@ -29,6 +29,11 @@ class VoiceUtil(private val context: Context, private val onResult: (String) -> 
         }
     }
 
+    fun stopListening() {
+        speechRecognizer.stopListening()
+        speechRecognizer.destroy()
+    }
+
     override fun onPartialResults(partialResults: Bundle?) {}
     override fun onEvent(eventType: Int, params: Bundle?) {}
     override fun onReadyForSpeech(params: Bundle?) {}

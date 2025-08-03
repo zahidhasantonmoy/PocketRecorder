@@ -83,6 +83,8 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
 
         if (sharedPreferences.getBoolean("voice_command_enabled", false)) {
             voiceUtil.startListening()
+        } else {
+            voiceUtil.stopListening()
         }
 
         return START_STICKY
