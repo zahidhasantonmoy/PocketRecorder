@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
+import android.content.Context
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -38,7 +39,12 @@ class MainActivity : ComponentActivity() {
                 )
 
                 if (permissionsState.allPermissionsGranted) {
-                    PocketRecorderApp()
+                    val sharedPrefs = getSharedPreferences("PocketRecorderPrefs", Context.MODE_PRIVATE)
+                    val tutorialShown = sharedPrefs.getBoolean("tutorial_shown", false)
+
+                    PocketRecorderApp(tutorialShown) {
+                        sharedPrefs.edit().putBoolean("tutorial_shown", true).apply()
+                    }
                     startService(Intent(this, TapDetectionService::class.java))
                 } else {
                     Column {
@@ -54,11 +60,12 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun PocketRecorderApp() {
+fun PocketRecorderApp(tutorialShown: Boolean, onTutorialComplete: () -> Unit) {
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = "home") {
+    NavHost(navController = navController, startDestination = if (tutorialShown) "home" else "tutorial") {
         composable("home") { HomeScreen(navController) }
         composable("settings") { SettingsScreen() }
+        composable("tutorial") { TutorialScreen(onTutorialComplete = { navController.navigate("home") }) }
     }
 }
 
