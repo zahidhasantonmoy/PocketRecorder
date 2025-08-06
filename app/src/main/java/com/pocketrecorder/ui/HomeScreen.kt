@@ -31,6 +31,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -98,7 +102,14 @@ fun SensorDataIndicator() {
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(text = "Current Acceleration: %.2f".format(acceleration), style = MaterialTheme.typography.bodyMedium)
-        // You can add a visual element here, e.g., a colored circle or a bar
-        // based on the acceleration value
+        val isRecording by TapDetectionService.isRecording.collectAsState()
+        Spacer(modifier = Modifier.height(8.dp))
+        Box(
+            modifier = Modifier
+                .size(20.dp)
+                .clip(CircleShape)
+                .background(if (isRecording) Color.Red else Color.Green)
+        )
+        Text(text = if (isRecording) "Recording..." else "Idle", style = MaterialTheme.typography.bodySmall)
     }
 }

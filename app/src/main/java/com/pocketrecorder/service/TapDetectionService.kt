@@ -69,6 +69,9 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
 
         private val _accelerationHistory = MutableStateFlow<List<Float>>(emptyList())
         val accelerationHistory: StateFlow<List<Float>> = _accelerationHistory.asStateFlow()
+
+        private val _isRecording = MutableStateFlow(false)
+        val isRecording: StateFlow<Boolean> = _isRecording.asStateFlow()
     }
 
     override fun onCreate() {
@@ -313,6 +316,7 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
             try {
                 prepare()
                 start()
+                _isRecording.value = true
                 saveLocation()
                 updateNotification("Audio recording started.")
                 // Stop recording after 30 seconds to prevent excessively long recordings
@@ -347,6 +351,7 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
         mediaRecorder?.apply {
             stop()
             release()
+            _isRecording.value = false
             updateNotification("Audio recording stopped.")
         }
         mediaRecorder = null
@@ -356,6 +361,7 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
         val videoFile = RecorderUtil.createVideoFile(applicationContext)
         CameraUtil.startRecordingVideo(applicationContext, this, videoFile) {
             // Handle video recorded callback
+            _isRecording.value = true
             saveLocation()
             updateNotification("Video recording started.")
         }
@@ -363,6 +369,7 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
 
     private fun stopVideoRecording() {
         CameraUtil.stopRecordingVideo()
+        _isRecording.value = false
         updateNotification("Video recording stopped.")
     }
 
