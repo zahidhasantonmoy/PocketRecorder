@@ -3,6 +3,7 @@ package com.pocketrecorder.ui
 import android.Manifest
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
@@ -23,10 +24,13 @@ import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.pocketrecorder.service.TapDetectionService
 import com.pocketrecorder.ui.theme.PocketRecorderTheme
 
+private const val TAG = "MainActivity"
+
 @OptIn(ExperimentalPermissionsApi::class)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d(TAG, "onCreate called")
         setContent {
             PocketRecorderTheme {
                 val permissionsState = rememberMultiplePermissionsState(
@@ -37,6 +41,8 @@ class MainActivity : ComponentActivity() {
                         Manifest.permission.SEND_SMS
                     )
                 )
+
+                Log.d(TAG, "All permissions granted: ${permissionsState.allPermissionsGranted}")
 
                 if (permissionsState.allPermissionsGranted) {
                     val sharedPrefs = getSharedPreferences("PocketRecorderPrefs", Context.MODE_PRIVATE)
@@ -49,7 +55,10 @@ class MainActivity : ComponentActivity() {
                 } else {
                     Column {
                         Text("Permissions required")
-                        Button(onClick = { permissionsState.launchMultiplePermissionRequest() }) {
+                        Button(onClick = {
+                            Log.d(TAG, "Request permissions button clicked")
+                            permissionsState.launchMultiplePermissionRequest()
+                        }) {
                             Text("Request permissions")
                         }
                     }
