@@ -35,6 +35,9 @@ import com.pocketrecorder.utils.CameraUtil
 import com.pocketrecorder.utils.RecorderUtil
 
 import com.pocketrecorder.utils.VoiceUtil
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.IOException
@@ -58,6 +61,12 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
     private var mediaRecorder: MediaRecorder? = null
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var voiceUtil: VoiceUtil
+
+    // For sensor data visualization
+    companion object {
+        private val _currentAcceleration = MutableStateFlow(0f)
+        val currentAcceleration: StateFlow<Float> = _currentAcceleration.asStateFlow()
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -141,6 +150,7 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
         val z = event.values[2]
 
         val acceleration = Math.sqrt((x * x + y * y + z * z).toDouble()) - SensorManager.GRAVITY_EARTH
+        _currentAcceleration.value = acceleration.toFloat()
 
         if (isTrainingSlap) {
             slapTrainingData.add(floatArrayOf(x, y, z))
