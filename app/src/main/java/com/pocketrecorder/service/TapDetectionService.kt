@@ -75,17 +75,33 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
         scheduleFileCleanupWorker()
     }
 
+    private var isTrainingSlap = false
+    private val slapTrainingData = mutableListOf<FloatArray>()
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
         startForeground(1, createNotification())
-        sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_NORMAL)
-        sensorManager.registerListener(this, proximitySensor, SensorManager.SENSOR_DELAY_NORMAL)
-        sensorManager.registerListener(this, rotationVectorSensor, SensorManager.SENSOR_DELAY_NORMAL)
+        accelerometer?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL) }
+        proximitySensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL) }
+        rotationVectorSensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL) }
 
         if (sharedPreferences.getBoolean("voice_command_enabled", false)) {
             voiceUtil.startListening()
         } else {
             voiceUtil.stopListening()
+        }
+
+        when (intent?.action) {
+            "ACTION_START_SLAP_TRAINING" -> {
+                isTrainingSlap = true
+                slapTrainingData.clear()
+                Log.d("TapDetectionService", "Slap training started.")
+            }
+            "ACTION_STOP_SLAP_TRAINING" -> {
+                isTrainingSlap = false
+                analyzeAndSaveSlapPattern()
+                Log.d("TapDetectionService", "Slap training stopped.")
+            }
         }
 
         return START_STICKY
@@ -120,6 +136,14 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
         val y = event.values[1]
         val z = event.values[2]
 
+        val acceleration = Math.sqrt((x * x + y * y + z * z).toDouble()) - SensorManager.GRAVITY_EARTH
+
+        if (isTrainingSlap) {
+            slapTrainingData.add(floatArrayOf(x, y, z))
+            Log.d("TapDetectionService", "Training data added: %.2f".format(acceleration))
+            return // Don't process as a tap during training
+        }
+
         val sensitivity = sharedPreferences.getString("sensitivity", "medium")
         val threshold = when (sensitivity) {
             "low" -> 8
@@ -128,24 +152,52 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
             else -> 12
         }
 
-        val acceleration = Math.sqrt((x * x + y * y + z * z).toDouble()) - SensorManager.GRAVITY_EARTH
-
         if (acceleration > threshold) {
             val currentTime = System.currentTimeMillis()
-            if (currentTime - lastTapTime > 1000) { // 1-second threshold
-                tapCount = 0
+            if (currentTime - lastTapTime > 1000) { // 1-second threshold for a new sequence
+                tapTimestamps.clear()
+                Log.d("PocketRecorder", "Tap sequence reset due to timeout.")
             }
             lastTapTime = currentTime
+            tapTimestamps.add(currentTime)
+            Log.d("PocketRecorder", "Acceleration: %.2f, Tap Timestamps: %s".format(acceleration, tapTimestamps.toString()))
 
-            if (acceleration > threshold) { // Only increment if acceleration is above threshold
-                tapCount++
-            }
-
-            if (shouldTriggerAction() && tapCount > 0) { // Only trigger if there are taps
-                handleTapAction()
-                tapCount = 0 // Reset tap count after action
+            if (shouldTriggerAction()) {
+                Log.d("PocketRecorder", "Should trigger action is true. Current tap count: ${tapTimestamps.size}")
+                detectAndHandleTapPattern()
+            } else {
+                Log.d("PocketRecorder", "Should trigger action is false. isDeviceInPocket: $isDeviceInPocket, isDeviceUpright: $isDeviceUpright")
             }
         }
+
+        // Slap detection
+        val savedSlapPeakAcceleration = sharedPreferences.getFloat("slap_peak_acceleration", 0f)
+        if (savedSlapPeakAcceleration > 0 && acceleration > savedSlapPeakAcceleration * 0.8 && acceleration < savedSlapPeakAcceleration * 1.2) { // Within 20% tolerance
+            Log.d("TapDetectionService", "Slap detected! Triggering audio recording.")
+            startAudioRecording()
+        }
+    }
+
+    private fun analyzeAndSaveSlapPattern() {
+        if (slapTrainingData.isEmpty()) {
+            Log.d("TapDetectionService", "No slap training data to analyze.")
+            return
+        }
+
+        var maxAcceleration = 0.0
+        for (data in slapTrainingData) {
+            val x = data[0]
+            val y = data[1]
+            val z = data[2]
+            val acceleration = Math.sqrt((x * x + y * y + z * z).toDouble()) - SensorManager.GRAVITY_EARTH
+            if (acceleration > maxAcceleration) {
+                maxAcceleration = acceleration
+            }
+        }
+
+        sharedPreferences.edit().putFloat("slap_peak_acceleration", maxAcceleration.toFloat()).apply()
+        Log.d("TapDetectionService", "Slap pattern saved with peak acceleration: %.2f".format(maxAcceleration))
+        slapTrainingData.clear()
     }
 
     private fun shouldTriggerAction(): Boolean {

@@ -66,6 +66,11 @@ fun SettingsScreen() {
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Slap Pattern Training
+            SlapPatternSetting(sharedPreferences)
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Emergency Contacts
             EmergencyContacts(context)
         }
@@ -243,6 +248,30 @@ fun EmergencyContacts(context: Context) {
             Text("Add Contact")
         }
     }
+}
+
+@Composable
+fun SlapPatternSetting(sharedPreferences: SharedPreferences) {
+    val context = LocalContext.current
+    var trainingMessage by remember { mutableStateOf("") }
+
+    Column {
+        Text(text = "Slap Pattern Training", style = MaterialTheme.typography.titleMedium)
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(onClick = {
+            // Start training mode in TapDetectionService
+            val intent = Intent(context, TapDetectionService::class.java).apply {
+                action = "ACTION_START_SLAP_TRAINING"
+            }
+            context.startService(intent)
+            trainingMessage = "Perform a slap gesture now..."
+        }) {
+            Text("Start Slap Training")
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(text = trainingMessage, style = MaterialTheme.typography.bodyMedium)
+    }
+}
 }
 
 @Composable
