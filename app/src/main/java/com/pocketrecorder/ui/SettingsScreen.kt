@@ -1,6 +1,7 @@
 package com.pocketrecorder.ui
 
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -15,7 +16,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.pocketrecorder.data.AppDatabase
 import com.pocketrecorder.data.Contact
+import com.pocketrecorder.service.TapDetectionService
 import kotlinx.coroutines.launch
+import android.widget.Toast
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -258,31 +263,64 @@ fun SlapPatternSetting(sharedPreferences: SharedPreferences) {
     Column {
         Text(text = "Slap Pattern Training", style = MaterialTheme.typography.titleMedium)
         Spacer(modifier = Modifier.height(8.dp))
-        Button(onClick = {
-            // Start training mode in TapDetectionService
-            val intent = Intent(context, TapDetectionService::class.java).apply {
-                action = "ACTION_START_SLAP_TRAINING"
+
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+            Button(onClick = {
+                val intent = Intent(context, TapDetectionService::class.java).apply {
+                    action = "ACTION_START_SLAP_TRAINING"
+                }
+                context.startService(intent)
+                trainingMessage = "Perform a slap gesture now..."
+                Toast.makeText(context, "Slap training started!", Toast.LENGTH_SHORT).show()
+            }) {
+                Text("Start Training")
             }
-            context.startService(intent)
-            trainingMessage = "Perform a slap gesture now..."
-        }) {
-            Text("Start Slap Training")
+
+            Button(onClick = {
+                val intent = Intent(context, TapDetectionService::class.java).apply {
+                    action = "ACTION_STOP_SLAP_TRAINING"
+                }
+                context.startService(intent)
+                trainingMessage = "Training stopped. Analyzing..."
+                Toast.makeText(context, "Slap training stopped!", Toast.LENGTH_SHORT).show()
+            }) {
+                Text("Stop Training")
+            }
+
+            Button(onClick = {
+                val intent = Intent(context, TapDetectionService::class.java).apply {
+                    action = "ACTION_SAVE_SLAP_PATTERN"
+                }
+                context.startService(intent)
+                trainingMessage = "Slap pattern saved!"
+                Toast.makeText(context, "Slap pattern saved!", Toast.LENGTH_SHORT).show()
+            }) {
+                Text("Save Pattern")
+            }
         }
         Spacer(modifier = Modifier.height(8.dp))
         Text(text = trainingMessage, style = MaterialTheme.typography.bodyMedium)
     }
 }
-}
 
 @Composable
 fun RecordingDurationSetting(sharedPreferences: SharedPreferences) {
-    var duration by remember { mutableStateOf(sharedPreferences.getInt("recording_duration", 30)) } // Default to 30 seconds
+    var durationText by remember { mutableStateOf(sharedPreferences.getInt("recording_duration", 30).toString()) }
 
     Column {
         Text(text = "Recording Duration", style = MaterialTheme.typography.titleMedium)
-        SliderSetting("Duration (seconds)", duration, 10, 300) { newValue ->
-            duration = newValue
-            sharedPreferences.edit().putInt("recording_duration", newValue).apply()
-        }
+        OutlinedTextField(
+            value = durationText,
+            onValueChange = { newValue ->
+                durationText = newValue
+                val newDuration = newValue.toIntOrNull()
+                if (newDuration != null && newDuration > 0) {
+                    sharedPreferences.edit().putInt("recording_duration", newDuration).apply()
+                }
+            },
+            label = { Text("Duration (seconds)") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }

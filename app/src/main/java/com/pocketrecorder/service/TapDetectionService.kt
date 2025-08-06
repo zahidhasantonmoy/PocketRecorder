@@ -99,8 +99,12 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
             }
             "ACTION_STOP_SLAP_TRAINING" -> {
                 isTrainingSlap = false
+                Log.d("TapDetectionService", "Slap training stopped. Analyzing data...")
+                // Data analysis will happen when ACTION_SAVE_SLAP_PATTERN is called
+            }
+            "ACTION_SAVE_SLAP_PATTERN" -> {
                 analyzeAndSaveSlapPattern()
-                Log.d("TapDetectionService", "Slap training stopped.")
+                Log.d("TapDetectionService", "Slap pattern saved.")
             }
         }
 
@@ -144,6 +148,14 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
             return // Don't process as a tap during training
         }
 
+        // Slap detection
+        val savedSlapPeakAcceleration = sharedPreferences.getFloat("slap_peak_acceleration", 0f)
+        if (savedSlapPeakAcceleration > 0 && acceleration > savedSlapPeakAcceleration * 0.8 && acceleration < savedSlapPeakAcceleration * 1.2) { // Within 20% tolerance
+            Log.d("TapDetectionService", "Slap detected! Triggering audio recording.")
+            startAudioRecording()
+            return
+        }
+
         val sensitivity = sharedPreferences.getString("sensitivity", "medium")
         val threshold = when (sensitivity) {
             "low" -> 8
@@ -155,26 +167,19 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
         if (acceleration > threshold) {
             val currentTime = System.currentTimeMillis()
             if (currentTime - lastTapTime > 1000) { // 1-second threshold for a new sequence
-                tapTimestamps.clear()
+                tapCount = 0
                 Log.d("PocketRecorder", "Tap sequence reset due to timeout.")
             }
             lastTapTime = currentTime
-            tapTimestamps.add(currentTime)
-            Log.d("PocketRecorder", "Acceleration: %.2f, Tap Timestamps: %s".format(acceleration, tapTimestamps.toString()))
+            tapCount++
+            Log.d("PocketRecorder", "Acceleration: %.2f, Tap Count: %d".format(acceleration, tapCount))
 
             if (shouldTriggerAction()) {
-                Log.d("PocketRecorder", "Should trigger action is true. Current tap count: ${tapTimestamps.size}")
-                detectAndHandleTapPattern()
+                Log.d("PocketRecorder", "Should trigger action is true. Current tap count: $tapCount")
+                handleTapAction()
             } else {
                 Log.d("PocketRecorder", "Should trigger action is false. isDeviceInPocket: $isDeviceInPocket, isDeviceUpright: $isDeviceUpright")
             }
-        }
-
-        // Slap detection
-        val savedSlapPeakAcceleration = sharedPreferences.getFloat("slap_peak_acceleration", 0f)
-        if (savedSlapPeakAcceleration > 0 && acceleration > savedSlapPeakAcceleration * 0.8 && acceleration < savedSlapPeakAcceleration * 1.2) { // Within 20% tolerance
-            Log.d("TapDetectionService", "Slap detected! Triggering audio recording.")
-            startAudioRecording()
         }
     }
 
@@ -184,18 +189,20 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
             return
         }
 
-        var maxAcceleration = 0.0
+        val accelerations = mutableListOf<Float>()
         for (data in slapTrainingData) {
             val x = data[0]
             val y = data[1]
             val z = data[2]
             val acceleration = Math.sqrt((x * x + y * y + z * z).toDouble()) - SensorManager.GRAVITY_EARTH
-            if (acceleration > maxAcceleration) {
-                maxAcceleration = acceleration
-            }
+            accelerations.add(acceleration.toFloat())
         }
 
-        sharedPreferences.edit().putFloat("slap_peak_acceleration", maxAcceleration.toFloat()).apply()
+        // Simple approach: store the average of the top N peaks, or just the top peak
+        // For now, let's just store the max acceleration as a float
+        val maxAcceleration = accelerations.maxOrNull() ?: 0f
+
+        sharedPreferences.edit().putFloat("slap_peak_acceleration", maxAcceleration).apply()
         Log.d("TapDetectionService", "Slap pattern saved with peak acceleration: %.2f".format(maxAcceleration))
         slapTrainingData.clear()
     }
