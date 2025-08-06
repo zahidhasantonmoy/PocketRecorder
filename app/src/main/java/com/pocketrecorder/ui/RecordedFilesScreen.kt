@@ -23,6 +23,9 @@ import android.content.Intent
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import android.widget.MediaController
+import android.widget.VideoView
+import androidx.compose.ui.viewinterop.AndroidView
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -155,6 +158,10 @@ fun FileItem(file: File, onShare: (File) -> Unit, onDelete: (File) -> Unit) {
                     }) {
                         Icon(Icons.Filled.Stop, contentDescription = "Stop")
                     }
+                } else if (file.extension == "mp4") { // Handle video files
+                    IconButton(onClick = { showVideoPlayer = true }) {
+                        Icon(Icons.Filled.PlayArrow, contentDescription = "Play Video")
+                    }
                 }
                 IconButton(onClick = { onShare(file) }) {
                     Icon(Icons.Filled.Share, contentDescription = "Share")
@@ -175,6 +182,15 @@ fun FileItem(file: File, onShare: (File) -> Unit, onDelete: (File) -> Unit) {
                 modifier = Modifier.fillMaxWidth()
             )
         }
+    }
+
+    if (showVideoPlayer) {
+        AlertDialog(
+            onDismissRequest = { showVideoPlayer = false },
+            title = { Text("Play Video") },
+            text = { VideoPlayer(file) },
+            confirmButton = { Button(onClick = { showVideoPlayer = false }) { Text("Close") } }
+        )
     }
 }
 
@@ -199,4 +215,22 @@ private fun deleteFile(context: Context, file: File, onFileDeleted: () -> Unit) 
         Toast.makeText(context, "File deleted: ${file.name}", Toast.LENGTH_SHORT).show()
         onFileDeleted()
     }
+}
+
+@Composable
+fun VideoPlayer(file: File) {
+    val context = LocalContext.current
+    AndroidView(factory = {
+        VideoView(it).apply {
+            setVideoURI(Uri.fromFile(file))
+            val mediaController = MediaController(it)
+            mediaController.setAnchorView(this)
+            setMediaController(mediaController)
+            setOnPreparedListener { start() }
+        }
+    },
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp)
+    )
 }
