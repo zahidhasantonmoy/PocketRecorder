@@ -198,8 +198,9 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
                 saveLocation()
                 updateNotification("Audio recording started.")
                 // Stop recording after 30 seconds to prevent excessively long recordings
+                val recordingDuration = sharedPreferences.getInt("recording_duration", 30) // Default to 30 seconds
                 lifecycleScope.launch {
-                    kotlinx.coroutines.delay(30000) // 30 seconds
+                    kotlinx.coroutines.delay(recordingDuration * 1000L) // Convert seconds to milliseconds
                     stopAudioRecording()
                 }
             } catch (e: IOException) {

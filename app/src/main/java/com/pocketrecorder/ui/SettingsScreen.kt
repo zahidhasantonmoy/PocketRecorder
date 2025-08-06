@@ -46,6 +46,11 @@ fun SettingsScreen() {
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Recording Duration Setting
+            RecordingDurationSetting(sharedPreferences)
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Sensitivity Setting
             SensitivitySetting(sharedPreferences)
 
@@ -236,6 +241,19 @@ fun EmergencyContacts(context: Context) {
             }
         }) {
             Text("Add Contact")
+        }
+    }
+}
+
+@Composable
+fun RecordingDurationSetting(sharedPreferences: SharedPreferences) {
+    var duration by remember { mutableStateOf(sharedPreferences.getInt("recording_duration", 30)) } // Default to 30 seconds
+
+    Column {
+        Text(text = "Recording Duration", style = MaterialTheme.typography.titleMedium)
+        SliderSetting("Duration (seconds)", duration, 10, 300) { newValue ->
+            duration = newValue
+            sharedPreferences.edit().putInt("recording_duration", newValue).apply()
         }
     }
 }
