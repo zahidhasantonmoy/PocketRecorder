@@ -66,6 +66,9 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
     companion object {
         private val _currentAcceleration = MutableStateFlow(0f)
         val currentAcceleration: StateFlow<Float> = _currentAcceleration.asStateFlow()
+
+        private val _accelerationHistory = MutableStateFlow<List<Float>>(emptyList())
+        val accelerationHistory: StateFlow<List<Float>> = _accelerationHistory.asStateFlow()
     }
 
     override fun onCreate() {
@@ -151,6 +154,14 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
 
         val acceleration = Math.sqrt((x * x + y * y + z * z).toDouble()) - SensorManager.GRAVITY_EARTH
         _currentAcceleration.value = acceleration.toFloat()
+
+        // Update acceleration history for visualization
+        val newHistory = _accelerationHistory.value.toMutableList()
+        newHistory.add(acceleration.toFloat())
+        if (newHistory.size > 100) { // Keep last 100 data points for visualization
+            newHistory.removeAt(0)
+        }
+        _accelerationHistory.value = newHistory
 
         if (isTrainingSlap) {
             slapTrainingData.add(floatArrayOf(x, y, z))

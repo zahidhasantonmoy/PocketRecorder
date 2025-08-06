@@ -21,6 +21,10 @@ import kotlinx.coroutines.launch
 import android.widget.Toast
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.Color
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -300,6 +304,41 @@ fun SlapPatternSetting(sharedPreferences: SharedPreferences) {
         }
         Spacer(modifier = Modifier.height(8.dp))
         Text(text = trainingMessage, style = MaterialTheme.typography.bodyMedium)
+        SlapTrainingVisualizer()
+    }
+}
+
+@Composable
+fun SlapTrainingVisualizer() {
+    val accelerationHistory by TapDetectionService.accelerationHistory.collectAsState()
+    val maxAcceleration = remember(accelerationHistory) { accelerationHistory.maxOrNull() ?: 1f }
+
+    Canvas(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(100.dp)
+            .padding(vertical = 8.dp)
+    ) {
+        if (accelerationHistory.isNotEmpty()) {
+            val path = Path()
+            val xStep = size.width / (accelerationHistory.size - 1).toFloat()
+
+            accelerationHistory.forEachIndexed { index, acceleration ->
+                val x = index * xStep
+                val y = size.height - (acceleration / maxAcceleration) * size.height
+
+                if (index == 0) {
+                    path.moveTo(x, y)
+                } else {
+                    path.lineTo(x, y)
+                }
+            }
+            drawPath(
+                path = path,
+                color = Color.Blue,
+                style = Stroke(width = 2.dp.toPx())
+            )
+        }
     }
 }
 
