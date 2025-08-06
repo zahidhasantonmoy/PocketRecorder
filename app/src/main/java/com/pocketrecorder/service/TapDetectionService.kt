@@ -170,11 +170,20 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
         }
 
         // Slap detection
-        val savedSlapPeakAcceleration = sharedPreferences.getFloat("slap_peak_acceleration", 0f)
-        if (savedSlapPeakAcceleration > 0 && acceleration > savedSlapPeakAcceleration * 0.8 && acceleration < savedSlapPeakAcceleration * 1.2) { // Within 20% tolerance
-            Log.d("TapDetectionService", "Slap detected! Triggering audio recording.")
-            startAudioRecording()
-            return
+        val savedSlapSignatureString = sharedPreferences.getString("slap_signature", null)
+        if (savedSlapSignatureString != null) {
+            val savedSlapSignature = savedSlapSignatureString.split(",").map { it.toFloat() }.toFloatArray()
+            if (isSlapDetected(acceleration.toFloat(), savedSlapSignature)) {
+                Log.d("TapDetectionService", "Slap detected!")
+                val slapAction = sharedPreferences.getString("slap_action", "audio") ?: "audio"
+                when (slapAction) {
+                    "audio" -> startAudioRecording()
+                    "video" -> startVideoRecording()
+                    "image" -> captureImage()
+                    "emergency" -> triggerEmergencyMode()
+                }
+                return
+            }
         }
 
         val sensitivity = sharedPreferences.getString("sensitivity", "medium")
@@ -219,13 +228,42 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
             accelerations.add(acceleration.toFloat())
         }
 
-        // Simple approach: store the average of the top N peaks, or just the top peak
-        // For now, let's just store the max acceleration as a float
-        val maxAcceleration = accelerations.maxOrNull() ?: 0f
+        // Extract significant peaks from the acceleration data
+        val peaks = mutableListOf<Float>()
+        if (accelerations.isNotEmpty()) {
+            // Simple peak detection: consider a peak if it's greater than its immediate neighbors
+            for (i in 1 until accelerations.size - 1) {
+                if (accelerations[i] > accelerations[i - 1] && accelerations[i] > accelerations[i + 1]) {
+                    peaks.add(accelerations[i])
+                }
+            }
+            // Add the first and last points if they are significant
+            if (accelerations.first() > (accelerations.getOrNull(1) ?: 0f)) peaks.add(accelerations.first())
+            if (accelerations.last() > (accelerations.getOrNull(accelerations.size - 2) ?: 0f)) peaks.add(accelerations.last())
+        }
 
-        sharedPreferences.edit().putFloat("slap_peak_acceleration", maxAcceleration).apply()
-        Log.d("TapDetectionService", "Slap pattern saved with peak acceleration: %.2f".format(maxAcceleration))
+        // Sort peaks and take the top N (e.g., top 3) to form the signature
+        val slapSignature = peaks.sortedDescending().take(3).toFloatArray()
+
+        // Convert float array to a comma-separated string for SharedPreferences
+        val signatureString = slapSignature.joinToString(",")
+        sharedPreferences.edit().putString("slap_signature", signatureString).apply()
+        Log.d("TapDetectionService", "Slap pattern saved with signature: $signatureString")
         slapTrainingData.clear()
+    }
+
+    private fun isSlapDetected(currentAcceleration: Float, savedSlapSignature: FloatArray): Boolean {
+        if (savedSlapSignature.isEmpty()) return false
+
+        // For simplicity, check if current acceleration is close to any of the saved peaks
+        // A more robust solution would involve analyzing the shape of the acceleration curve
+        val tolerance = 0.2f // 20% tolerance
+        for (peak in savedSlapSignature) {
+            if (currentAcceleration >= peak * (1 - tolerance) && currentAcceleration <= peak * (1 + tolerance)) {
+                return true
+            }
+        }
+        return false
     }
 
     private fun shouldTriggerAction(): Boolean {

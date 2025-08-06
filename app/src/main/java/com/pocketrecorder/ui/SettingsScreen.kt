@@ -25,6 +25,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -305,6 +307,46 @@ fun SlapPatternSetting(sharedPreferences: SharedPreferences) {
         Spacer(modifier = Modifier.height(8.dp))
         Text(text = trainingMessage, style = MaterialTheme.typography.bodyMedium)
         SlapTrainingVisualizer()
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Slap Action Configuration
+        var expanded by remember { mutableStateOf(false) }
+        val actions = listOf("audio", "video", "image", "emergency")
+        var selectedAction by remember { mutableStateOf(sharedPreferences.getString("slap_action", "audio") ?: "audio") }
+
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = {
+                expanded = !expanded
+            }
+        ) {
+            OutlinedTextField(
+                value = selectedAction,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Slap Action") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier
+                    .menuAnchor()
+                    .fillMaxWidth()
+            )
+
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                actions.forEach { action ->
+                    DropdownMenuItem(onClick = {
+                        selectedAction = action
+                        sharedPreferences.edit().putString("slap_action", action).apply()
+                        expanded = false
+                    }) {
+                        Text(action)
+                    }
+                }
+            }
+        }
     }
 }
 
