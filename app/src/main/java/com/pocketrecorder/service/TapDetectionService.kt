@@ -191,10 +191,10 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
 
         val sensitivity = sharedPreferences.getString("sensitivity", "medium")
         val threshold = when (sensitivity) {
-            "low" -> 8
-            "medium" -> 12
-            "high" -> 16
-            else -> 12
+            "low" -> 6
+            "medium" -> 10
+            "high" -> 14
+            else -> 10
         }
 
         if (acceleration > threshold) {

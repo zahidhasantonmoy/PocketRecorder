@@ -207,9 +207,30 @@ fun PocketRecorderApp(tutorialShown: Boolean, cameraActionViewModel: CameraActio
 
 @Composable
 fun HomeScreen(navController: NavController) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        Text("Welcome to PocketRecorder", style = MaterialTheme.typography.headlineMedium)
-        // Add more UI elements here
+    val isRecording by TapDetectionService.isRecording.collectAsState()
+    val currentAcceleration by TapDetectionService.currentAcceleration.collectAsState()
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("Welcome to PocketRecorder", style = MaterialTheme.typography.headlineMedium)
+            Spacer(modifier = Modifier.height(16.dp))
+            if (isRecording) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Text("Recording...", style = MaterialTheme.typography.bodyMedium)
+                }
+            } else {
+                Text("Tap the back of your phone to start recording.", style = MaterialTheme.typography.bodyMedium)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("Current Acceleration: %.2f".format(currentAcceleration), style = MaterialTheme.typography.bodyMedium)
+        }
     }
 }
 
@@ -218,6 +239,7 @@ fun SettingsScreen() {
     val context = LocalContext.current
     val sharedPreferences = remember { context.getSharedPreferences("PocketRecorderPrefs", Context.MODE_PRIVATE) }
     var videoDuration by remember { mutableStateOf(sharedPreferences.getInt("recording_duration", 30).toString()) }
+    var sensitivity by remember { mutableStateOf(sharedPreferences.getString("sensitivity", "medium") ?: "medium") }
 
     Column(
         modifier = Modifier
@@ -232,8 +254,24 @@ fun SettingsScreen() {
             label = { Text("Video Recording Duration (seconds)") }
         )
         Spacer(modifier = Modifier.height(16.dp))
+        Text("Sensitivity")
+        Row {
+            Button(onClick = { sensitivity = "low" }) {
+                Text("Low")
+            }
+            Button(onClick = { sensitivity = "medium" }) {
+                Text("Medium")
+            }
+            Button(onClick = { sensitivity = "high" }) {
+                Text("High")
+            }
+        }
+        Spacer(modifier = Modifier.height(16.dp))
         Button(onClick = {
-            sharedPreferences.edit().putInt("recording_duration", videoDuration.toInt()).apply()
+            sharedPreferences.edit()
+                .putInt("recording_duration", videoDuration.toInt())
+                .putString("sensitivity", sensitivity)
+                .apply()
         }) {
             Text("Save")
         }
