@@ -4,8 +4,10 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -88,10 +90,38 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
         }
 
         scheduleFileCleanupWorker()
+
+        val filter = IntentFilter().apply {
+            addAction("com.pocketrecorder.ACTION_START_SLAP_TRAINING")
+            addAction("com.pocketrecorder.ACTION_STOP_SLAP_TRAINING")
+            addAction("com.pocketrecorder.ACTION_SAVE_SLAP_PATTERN")
+        }
+        registerReceiver(slapTrainingReceiver, filter)
     }
 
     private var isTrainingSlap = false
     private val slapTrainingData = mutableListOf<FloatArray>()
+
+    private val slapTrainingReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent?.action) {
+                "com.pocketrecorder.ACTION_START_SLAP_TRAINING" -> {
+                    isTrainingSlap = true
+                    slapTrainingData.clear()
+                    Log.d("TapDetectionService", "Slap training started.")
+                }
+                "com.pocketrecorder.ACTION_STOP_SLAP_TRAINING" -> {
+                    isTrainingSlap = false
+                    Log.d("TapDetectionService", "Slap training stopped. Analyzing data...")
+                }
+                "com.pocketrecorder.ACTION_SAVE_SLAP_PATTERN" -> {
+                    val action = intent.getStringExtra("action")
+                    analyzeAndSaveSlapPattern(action)
+                    Log.d("TapDetectionService", "Slap pattern saved for action: $action")
+                }
+            }
+        }
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
@@ -104,23 +134,6 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
             voiceUtil.startListening()
         } else {
             voiceUtil.stopListening()
-        }
-
-        when (intent?.action) {
-            "ACTION_START_SLAP_TRAINING" -> {
-                isTrainingSlap = true
-                slapTrainingData.clear()
-                Log.d("TapDetectionService", "Slap training started.")
-            }
-            "ACTION_STOP_SLAP_TRAINING" -> {
-                isTrainingSlap = false
-                Log.d("TapDetectionService", "Slap training stopped. Analyzing data...")
-                // Data analysis will happen when ACTION_SAVE_SLAP_PATTERN is called
-            }
-            "ACTION_SAVE_SLAP_PATTERN" -> {
-                analyzeAndSaveSlapPattern()
-                Log.d("TapDetectionService", "Slap pattern saved.")
-            }
         }
 
         return START_STICKY
@@ -191,10 +204,10 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
 
         val sensitivity = sharedPreferences.getString("sensitivity", "medium")
         val threshold = when (sensitivity) {
-            "low" -> 6
-            "medium" -> 10
-            "high" -> 14
-            else -> 10
+            "low" -> 8
+            "medium" -> 12
+            "high" -> 16
+            else -> 12
         }
 
         if (acceleration > threshold) {
@@ -216,7 +229,7 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
         }
     }
 
-    private fun analyzeAndSaveSlapPattern() {
+    private fun analyzeAndSaveSlapPattern(action: String?) {
         if (slapTrainingData.isEmpty()) {
             Log.d("TapDetectionService", "No slap training data to analyze.")
             return
@@ -250,8 +263,11 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
 
         // Convert float array to a comma-separated string for SharedPreferences
         val signatureString = slapSignature.joinToString(",")
-        sharedPreferences.edit().putString("slap_signature", signatureString).apply()
-        Log.d("TapDetectionService", "Slap pattern saved with signature: $signatureString")
+        sharedPreferences.edit()
+            .putString("slap_signature", signatureString)
+            .putString("slap_action", action)
+            .apply()
+        Log.d("TapDetectionService", "Slap pattern saved with signature: $signatureString for action: $action")
         slapTrainingData.clear()
     }
 

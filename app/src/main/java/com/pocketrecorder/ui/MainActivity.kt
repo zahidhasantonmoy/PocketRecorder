@@ -134,6 +134,7 @@ sealed class Screen(val route: String, val title: String, val icon: @Composable 
     object RecordedFiles : Screen("recorded_files", "Files", { Icon(Icons.Filled.List, contentDescription = "Recorded Files") })
     object Tutorial : Screen("tutorial", "Tutorial", { Icon(Icons.Filled.Home, contentDescription = "Tutorial") }) // No icon for tutorial
     object Camera : Screen("camera", "Camera", { Icon(Icons.Filled.Home, contentDescription = "Camera") })
+    object SlapTraining : Screen("slap_training", "Slap Training", { Icon(Icons.Filled.Settings, contentDescription = "Slap Training") })
 }
 
 @Composable
@@ -189,7 +190,7 @@ fun PocketRecorderApp(tutorialShown: Boolean, cameraActionViewModel: CameraActio
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.Home.route) { HomeScreen(navController) }
-            composable(Screen.Settings.route) { SettingsScreen() }
+            composable(Screen.Settings.route) { SettingsScreen(navController) }
             composable(Screen.RecordedFiles.route) {
                 val context = LocalContext.current
                 val fileRepository = remember { FileRepository(context) }
@@ -197,140 +198,9 @@ fun PocketRecorderApp(tutorialShown: Boolean, cameraActionViewModel: CameraActio
                 RecordedFilesScreen(viewModel)
             }
             composable(Screen.Tutorial.route) { TutorialScreen(onTutorialComplete = { navController.navigate(Screen.Home.route) }) }
-            composable(Screen.Camera.route + "/{action}") {
-                val action = it.arguments?.getString("action")
-                CameraScreen(navController, action)
-            }
+            composable(Screen.SlapTraining.route) { SlapTrainingScreen() }
+            
         }
     }
 }
 
-@Composable
-fun HomeScreen(navController: NavController) {
-    val isRecording by TapDetectionService.isRecording.collectAsState()
-    val currentAcceleration by TapDetectionService.currentAcceleration.collectAsState()
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text("Welcome to PocketRecorder", style = MaterialTheme.typography.headlineMedium)
-            Spacer(modifier = Modifier.height(16.dp))
-            if (isRecording) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                    Spacer(modifier = Modifier.size(8.dp))
-                    Text("Recording...", style = MaterialTheme.typography.bodyMedium)
-                }
-            } else {
-                Text("Tap the back of your phone to start recording.", style = MaterialTheme.typography.bodyMedium)
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Current Acceleration: %.2f".format(currentAcceleration), style = MaterialTheme.typography.bodyMedium)
-        }
-    }
-}
-
-@Composable
-fun SettingsScreen() {
-    val context = LocalContext.current
-    val sharedPreferences = remember { context.getSharedPreferences("PocketRecorderPrefs", Context.MODE_PRIVATE) }
-    var videoDuration by remember { mutableStateOf(sharedPreferences.getInt("recording_duration", 30).toString()) }
-    var sensitivity by remember { mutableStateOf(sharedPreferences.getString("sensitivity", "medium") ?: "medium") }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Text("Settings", style = MaterialTheme.typography.headlineMedium)
-        Spacer(modifier = Modifier.height(16.dp))
-        TextField(
-            value = videoDuration,
-            onValueChange = { videoDuration = it },
-            label = { Text("Video Recording Duration (seconds)") }
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("Sensitivity")
-        Row {
-            Button(onClick = { sensitivity = "low" }) {
-                Text("Low")
-            }
-            Button(onClick = { sensitivity = "medium" }) {
-                Text("Medium")
-            }
-            Button(onClick = { sensitivity = "high" }) {
-                Text("High")
-            }
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = {
-            sharedPreferences.edit()
-                .putInt("recording_duration", videoDuration.toInt())
-                .putString("sensitivity", sensitivity)
-                .apply()
-        }) {
-            Text("Save")
-        }
-    }
-}
-
-@Composable
-fun RecordedFilesScreen(viewModel: RecordedFilesViewModel) {
-    val recordedFiles by viewModel.recordedFiles.collectAsState()
-
-    LaunchedEffect(Unit) {
-        viewModel.loadRecordedFiles()
-    }
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        Text("Recorded Files", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(16.dp))
-        LazyColumn(modifier = Modifier.weight(1f)) {
-            items(recordedFiles) { file ->
-                FileListItem(file, onDelete = { viewModel.deleteFile(file) })
-            }
-        }
-    }
-}
-
-@Composable
-fun TutorialScreen(onTutorialComplete: () -> Unit) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        Text("Tutorial", style = MaterialTheme.typography.headlineMedium)
-        Button(onClick = onTutorialComplete) {
-            Text("Skip Tutorial")
-        }
-    }
-}
-
-@Composable
-fun CameraScreen(navController: NavController, action: String?) {
-    // Camera implementation goes here
-    Text("Camera Action: $action")
-}
-
-@Composable
-fun FileListItem(file: File, onDelete: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Filled.PlayArrow, contentDescription = "Play")
-            Spacer(modifier = Modifier.size(16.dp))
-            Text(file.name, modifier = Modifier.weight(1f))
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Filled.Delete, contentDescription = "Delete")
-            }
-        }
-    }
-}

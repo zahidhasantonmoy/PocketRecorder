@@ -1,71 +1,70 @@
 package com.pocketrecorder.ui
 
-import android.content.Context
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.* // Import all Material3 components
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pocketrecorder.data.FileRepository
 import java.io.File
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RecordedFilesScreen() {
-    val context = LocalContext.current
-    var audioFiles by remember { mutableStateOf(emptyList<File>()) }
-    var videoFiles by remember { mutableStateOf(emptyList<File>()) }
-    var imageFiles by remember { mutableStateOf(emptyList<File>()) }
+fun RecordedFilesScreen(viewModel: RecordedFilesViewModel = viewModel(factory = RecordedFilesViewModelFactory(FileRepository(LocalContext.current)))) {
+    val recordedFiles by viewModel.recordedFiles.collectAsState()
 
     LaunchedEffect(Unit) {
-        audioFiles = getRecordedFiles(context, "audio")
-        videoFiles = getRecordedFiles(context, "video")
-        imageFiles = getRecordedFiles(context, "image")
+        viewModel.loadRecordedFiles()
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Recorded Files") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary
-                )
-            )
-        }
-    ) { paddingValues ->
-        Column(modifier = Modifier.padding(paddingValues).padding(16.dp)) {
-            if (audioFiles.isNotEmpty()) {
-                Text("Audio Recordings", style = MaterialTheme.typography.titleMedium)
-                audioFiles.forEach { file ->
-                    Text(file.name)
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-            if (videoFiles.isNotEmpty()) {
-                Text("Video Recordings", style = MaterialTheme.typography.titleMedium)
-                videoFiles.forEach { file ->
-                    Text(file.name)
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-            if (imageFiles.isNotEmpty()) {
-                Text("Image Captures", style = MaterialTheme.typography.titleMedium)
-                imageFiles.forEach { file ->
-                    Text(file.name)
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-            if (audioFiles.isEmpty() && videoFiles.isEmpty() && imageFiles.isEmpty()) {
-                Text("No recorded files yet.", style = MaterialTheme.typography.bodyLarge)
+    Column(modifier = Modifier.fillMaxSize()) {
+        Text("Recorded Files", modifier = Modifier.padding(16.dp))
+        LazyColumn(modifier = Modifier.weight(1f)) {
+            items(recordedFiles) { file ->
+                FileListItem(file, onDelete = { viewModel.deleteFile(file) })
             }
         }
     }
 }
 
-private fun getRecordedFiles(context: Context, type: String): List<File> {
-    val directory = File(context.filesDir, type)
-    return directory.listFiles()?.filter { it.isFile }?.toList() ?: emptyList()
+@Composable
+fun FileListItem(file: File, onDelete: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Filled.PlayArrow, contentDescription = "Play")
+            Spacer(modifier = Modifier.size(16.dp))
+            Text(file.name, modifier = Modifier.weight(1f))
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Filled.Delete, contentDescription = "Delete")
+            }
+        }
+    }
 }
