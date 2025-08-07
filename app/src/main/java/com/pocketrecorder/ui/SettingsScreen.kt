@@ -262,6 +262,7 @@ fun EmergencyContacts(context: Context) {
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun SlapPatternSetting(sharedPreferences: SharedPreferences) {
     val context = LocalContext.current
     var trainingMessage by remember { mutableStateOf("") }
@@ -337,13 +338,14 @@ fun SlapPatternSetting(sharedPreferences: SharedPreferences) {
                 onDismissRequest = { expanded = false }
             ) {
                 actions.forEach { action ->
-                    DropdownMenuItem(onClick = {
-                        selectedAction = action
-                        sharedPreferences.edit().putString("slap_action", action).apply()
-                        expanded = false
-                    }) {
-                        Text(action)
-                    }
+                    DropdownMenuItem(
+                        text = { Text(action) },
+                        onClick = {
+                            selectedAction = action
+                            sharedPreferences.edit().putString("slap_action", action).apply()
+                            expanded = false
+                        }
+                    )
                 }
             }
         }

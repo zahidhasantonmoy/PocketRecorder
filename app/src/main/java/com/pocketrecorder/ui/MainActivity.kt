@@ -8,6 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
@@ -94,7 +95,7 @@ fun PocketRecorderApp(tutorialShown: Boolean, onTutorialComplete: () -> Unit) {
         bottomBar = {
             if (currentRoute != Screen.Tutorial.route) { // Hide bottom bar on tutorial screen
                 NavigationBar {
-                    val items = listOf(Screen.Home, Screen.RecordedFiles, Screen.Settings)
+                    val items = listOf(Screen.Home, Screen.Settings)
                     items.forEach { screen ->
                         NavigationBarItem(
                             icon = { screen.icon() },
@@ -121,10 +122,13 @@ fun PocketRecorderApp(tutorialShown: Boolean, onTutorialComplete: () -> Unit) {
             }
         }
     ) { innerPadding ->
-        NavHost(navController = navController, startDestination = if (tutorialShown) Screen.Home.route else Screen.Tutorial.route) {
+        NavHost(
+            navController = navController,
+            startDestination = if (tutorialShown) Screen.Home.route else Screen.Tutorial.route,
+            modifier = Modifier.padding(innerPadding)
+        ) {
             composable(Screen.Home.route) { HomeScreen(navController) }
             composable(Screen.Settings.route) { SettingsScreen() }
-            composable(Screen.RecordedFiles.route) { RecordedFilesScreen() }
             composable(Screen.Tutorial.route) { TutorialScreen(onTutorialComplete = { navController.navigate(Screen.Home.route) }) }
         }
     }
