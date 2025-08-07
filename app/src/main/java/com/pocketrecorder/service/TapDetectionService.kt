@@ -25,6 +25,7 @@ import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import androidx.work.Constraints
 import androidx.work.NetworkType
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.google.android.gms.location.FusedLocationProviderClient
@@ -33,6 +34,7 @@ import com.pocketrecorder.R
 import com.pocketrecorder.data.AppDatabase
 import com.pocketrecorder.data.Contact
 import com.pocketrecorder.data.Location as AppLocation
+import com.pocketrecorder.worker.PeriodicRecordingWorker
 
 import com.pocketrecorder.utils.RecorderUtil
 
@@ -105,6 +107,34 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
             addAction("com.pocketrecorder.ACTION_STOP_RECORDING")
         }
         registerReceiver(manualRecordingReceiver, manualRecordingFilter)
+
+        updatePeriodicRecordingSchedule()
+    }
+
+    private fun updatePeriodicRecordingSchedule() {
+        val periodicRecordingEnabled = sharedPreferences.getBoolean("periodic_recording_enabled", false)
+        val periodicRecordingInterval = sharedPreferences.getInt("periodic_recording_interval", 60)
+
+        if (periodicRecordingEnabled) {
+            val constraints = Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
+                .build()
+
+            val periodicWorkRequest = PeriodicWorkRequestBuilder<PeriodicRecordingWorker>(
+                periodicRecordingInterval.toLong(), TimeUnit.SECONDS)
+                .setConstraints(constraints)
+                .build()
+
+            WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
+                "PeriodicRecordingWork",
+                ExistingPeriodicWorkPolicy.UPDATE,
+                periodicWorkRequest
+            )
+            Log.d("TapDetectionService", "Periodic recording scheduled every $periodicRecordingInterval seconds.")
+        } else {
+            WorkManager.getInstance(applicationContext).cancelUniqueWork("PeriodicRecordingWork")
+            Log.d("TapDetectionService", "Periodic recording cancelled.")
+        }
     }
 
     private var isTrainingSlap = false
@@ -490,6 +520,8 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
     override fun onDestroy() {
         super.onDestroy()
         sensorManager.unregisterListener(this)
+        unregisterReceiver(slapTrainingReceiver)
+        unregisterReceiver(manualRecordingReceiver)
         stopAudioRecording()
         // No explicit stop for image capture needed as it's a single shot
     }

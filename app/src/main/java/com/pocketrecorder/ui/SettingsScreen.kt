@@ -65,9 +65,6 @@ fun SettingsScreen(navController: NavController) {
         var videoDuration by remember { mutableStateOf(sharedPreferences.getInt("video_duration", 30).toString()) }
         TextField(value = videoDuration, onValueChange = { videoDuration = it }, label = { Text("Video Duration (seconds)") })
         Spacer(modifier = Modifier.height(16.dp))
-        var videoDuration by remember { mutableStateOf(sharedPreferences.getInt("video_duration", 30).toString()) }
-        TextField(value = videoDuration, onValueChange = { videoDuration = it }, label = { Text("Video Duration (seconds)") })
-        Spacer(modifier = Modifier.height(16.dp))
         Text("Sensitivity")
         Row {
             Button(onClick = { sensitivity = "low" }) { Text("Low") }
@@ -125,6 +122,17 @@ fun SettingsScreen(navController: NavController) {
             Text("Multilingual Support")
         }
         Spacer(modifier = Modifier.height(16.dp))
+        var periodicRecordingEnabled by remember { mutableStateOf(sharedPreferences.getBoolean("periodic_recording_enabled", false)) }
+        var periodicRecordingInterval by remember { mutableStateOf(sharedPreferences.getInt("periodic_recording_interval", 60).toString()) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(checked = periodicRecordingEnabled, onCheckedChange = { periodicRecordingEnabled = it })
+            Text("Enable Periodic Recording")
+        }
+        if (periodicRecordingEnabled) {
+            Spacer(modifier = Modifier.height(16.dp))
+            TextField(value = periodicRecordingInterval, onValueChange = { periodicRecordingInterval = it }, label = { Text("Periodic Recording Interval (seconds)") })
+        }
+        Spacer(modifier = Modifier.height(16.dp))
         Button(onClick = {
             sharedPreferences.edit()
                 .putInt("audio_taps", audioTaps.toInt())
@@ -142,6 +150,8 @@ fun SettingsScreen(navController: NavController) {
                 .putBoolean("battery_optimization", batteryOptimization)
                 .putBoolean("tutorial_mode", tutorialMode)
                 .putBoolean("multilingual_support", multilingualSupport)
+                .putBoolean("periodic_recording_enabled", periodicRecordingEnabled)
+                .putInt("periodic_recording_interval", periodicRecordingInterval.toInt())
                 .apply()
         }) {
             Text("Save")
