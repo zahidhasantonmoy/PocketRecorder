@@ -165,9 +165,30 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent?.action) {
                 "com.pocketrecorder.ACTION_START_AUDIO_RECORDING" -> startAudioRecording()
-                "com.pocketrecorder.ACTION_START_VIDEO_RECORDING" -> startVideoRecording()
-                "com.pocketrecorder.ACTION_CAPTURE_IMAGE" -> captureImage()
-                "com.pocketrecorder.ACTION_STOP_RECORDING" -> stopAudioRecording() // This will stop any active recording
+                "com.pocketrecorder.ACTION_START_VIDEO_RECORDING" -> {
+                    val cameraIntent = Intent(context, CameraRecordingService::class.java).apply {
+                        action = CameraRecordingService.ACTION_START_VIDEO_RECORDING
+                    }
+                    context.startService(cameraIntent)
+                    _isRecording.value = true
+                    saveLocation()
+                    updateNotification("Video recording started.")
+                }
+                "com.pocketrecorder.ACTION_CAPTURE_IMAGE" -> {
+                    val cameraIntent = Intent(context, CameraRecordingService::class.java).apply {
+                        action = CameraRecordingService.ACTION_CAPTURE_IMAGE
+                    }
+                    context.startService(cameraIntent)
+                    saveLocation()
+                    updateNotification("Image captured.")
+                }
+                "com.pocketrecorder.ACTION_STOP_RECORDING" -> {
+                    stopAudioRecording() // This will stop any active audio recording
+                    val cameraIntent = Intent(context, CameraRecordingService::class.java).apply {
+                        action = CameraRecordingService.ACTION_STOP_VIDEO_RECORDING
+                    }
+                    context.startService(cameraIntent)
+                }
             }
         }
     }
@@ -430,25 +451,27 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
     }
 
     private fun startVideoRecording() {
-        val intent = Intent("com.pocketrecorder.ACTION_START_VIDEO_RECORDING")
-        sendBroadcast(intent)
+        val intent = Intent(this, CameraRecordingService::class.java).apply {
+            action = CameraRecordingService.ACTION_START_VIDEO_RECORDING
+        }
+        startService(intent)
         _isRecording.value = true
         saveLocation()
         updateNotification("Video recording started.")
 
         val videoDuration = sharedPreferences.getInt("video_duration", 30) // Default to 30 seconds
         lifecycleScope.launch {
-            kotlinx.coroutines.delay(videoDuration * 1000L) // Convert seconds to milliseconds
+            kotlinx.coroutines.delay(videoDuration * 1000L)
             // Need a way to stop video recording from here. This will require a more robust Camera implementation.
             // For now, the video recording will be stopped by the CameraX implementation itself after a duration.
         }
     }
 
-    
-
     private fun captureImage() {
-        val intent = Intent("com.pocketrecorder.ACTION_CAPTURE_IMAGE")
-        sendBroadcast(intent)
+        val intent = Intent(this, CameraRecordingService::class.java).apply {
+            action = CameraRecordingService.ACTION_CAPTURE_IMAGE
+        }
+        startService(intent)
         saveLocation()
         updateNotification("Image captured.")
     }

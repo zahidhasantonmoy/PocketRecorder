@@ -1,9 +1,8 @@
 package com.pocketrecorder.ui
 
 import android.Manifest
-import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -26,12 +25,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
-import android.content.Context
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -39,28 +38,19 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.pocketrecorder.service.TapDetectionService
 import com.pocketrecorder.ui.theme.PocketRecorderTheme
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.TextField
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import com.pocketrecorder.data.FileRepository
-import java.io.File
+import com.pocketrecorder.ui.HomeScreen
+import com.pocketrecorder.ui.SettingsScreen
+import com.pocketrecorder.ui.RecordedFilesScreen
+import com.pocketrecorder.ui.SlapTrainingScreen
+import com.pocketrecorder.ui.TutorialScreen
+import com.pocketrecorder.ui.HomeScreen
+import com.pocketrecorder.ui.SettingsScreen
+import com.pocketrecorder.ui.RecordedFilesScreen
+import com.pocketrecorder.ui.SlapTrainingScreen
+import com.pocketrecorder.ui.TutorialScreen
 
 private const val TAG = "MainActivity"
 
@@ -82,39 +72,26 @@ class MainActivity : ComponentActivity() {
 
                 Log.d(TAG, "All permissions granted: ${permissionsState.allPermissionsGranted}")
 
-                if (permissionsState.allPermissionsGranted) {
-                    val sharedPrefs = getSharedPreferences("PocketRecorderPrefs", Context.MODE_PRIVATE)
-                    val tutorialShown = sharedPrefs.getBoolean("tutorial_shown", false)
+                val allPermissionsGranted = permissionsState.allPermissionsGranted
+                val sharedPrefs = getSharedPreferences("PocketRecorderPrefs", Context.MODE_PRIVATE)
+                val tutorialShown = sharedPrefs.getBoolean("tutorial_shown", false)
 
-                    val cameraActionViewModel: CameraActionViewModel = viewModel()
+                LaunchedEffect(allPermissionsGranted) {
+                    if (allPermissionsGranted) {
+                        Log.d(TAG, "All permissions granted, starting TapDetectionService")
+                        startService(Intent(this@MainActivity, TapDetectionService::class.java))
+                    } else {
+                        Log.d(TAG, "Permissions not granted, TapDetectionService not started.")
+                    }
+                }
 
-                    PocketRecorderApp(tutorialShown, cameraActionViewModel) {
+                if (allPermissionsGranted) {
+                    PocketRecorderApp(tutorialShown) {
                         sharedPrefs.edit().putBoolean("tutorial_shown", true).apply()
                     }
-                    startService(Intent(this, TapDetectionService::class.java))
-
-                    val cameraActionReceiver = object : BroadcastReceiver() {
-                        override fun onReceive(context: Context?, intent: Intent?) {
-                            when (intent?.action) {
-                                "com.pocketrecorder.ACTION_START_VIDEO_RECORDING" -> {
-                                    cameraActionViewModel.setCameraAction(CameraAction.VIDEO)
-                                }
-                                "com.pocketrecorder.ACTION_CAPTURE_IMAGE" -> {
-                                    cameraActionViewModel.setCameraAction(CameraAction.IMAGE)
-                                }
-                            }
-                        }
-                    }
-
-                    val filter = IntentFilter().apply {
-                        addAction("com.pocketrecorder.ACTION_START_VIDEO_RECORDING")
-                        addAction("com.pocketrecorder.ACTION_CAPTURE_IMAGE")
-                    }
-                    LocalBroadcastManager.getInstance(this).registerReceiver(cameraActionReceiver, filter)
-
                 } else {
                     Column {
-                        Text("Permissions required")
+                        Text("Permissions required for the app to function correctly.")
                         Button(onClick = {
                             Log.d(TAG, "Request permissions button clicked")
                             permissionsState.launchMultiplePermissionRequest()
@@ -133,31 +110,14 @@ sealed class Screen(val route: String, val title: String, val icon: @Composable 
     object Settings : Screen("settings", "Settings", { Icon(Icons.Filled.Settings, contentDescription = "Settings") })
     object RecordedFiles : Screen("recorded_files", "Files", { Icon(Icons.Filled.List, contentDescription = "Recorded Files") })
     object Tutorial : Screen("tutorial", "Tutorial", { Icon(Icons.Filled.Home, contentDescription = "Tutorial") }) // No icon for tutorial
-    object Camera : Screen("camera", "Camera", { Icon(Icons.Filled.Home, contentDescription = "Camera") })
     object SlapTraining : Screen("slap_training", "Slap Training", { Icon(Icons.Filled.Settings, contentDescription = "Slap Training") })
 }
 
 @Composable
-fun PocketRecorderApp(tutorialShown: Boolean, cameraActionViewModel: CameraActionViewModel, onTutorialComplete: () -> Unit) {
+fun PocketRecorderApp(tutorialShown: Boolean, onTutorialComplete: () -> Unit) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-
-    val cameraAction by cameraActionViewModel.cameraAction.collectAsState()
-
-    LaunchedEffect(cameraAction) {
-        when (cameraAction) {
-            CameraAction.VIDEO -> {
-                navController.navigate(Screen.Camera.route + "/video")
-                cameraActionViewModel.resetCameraAction()
-            }
-            CameraAction.IMAGE -> {
-                navController.navigate(Screen.Camera.route + "/image")
-                cameraActionViewModel.resetCameraAction()
-            }
-            CameraAction.NONE -> { /* Do nothing */ }
-        }
-    }
 
     Scaffold(
         bottomBar = {
@@ -199,8 +159,6 @@ fun PocketRecorderApp(tutorialShown: Boolean, cameraActionViewModel: CameraActio
             }
             composable(Screen.Tutorial.route) { TutorialScreen(onTutorialComplete = { navController.navigate(Screen.Home.route) }) }
             composable(Screen.SlapTraining.route) { SlapTrainingScreen() }
-            
         }
     }
 }
-

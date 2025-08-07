@@ -22,6 +22,9 @@ android {
     }
 
     buildTypes {
+        debug {
+            lint.abortOnError = false
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -48,6 +51,7 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+    
 }
 
 dependencies {

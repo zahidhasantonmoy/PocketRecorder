@@ -1,3 +1,5 @@
+package com.pocketrecorder.ui
+
 import android.content.Intent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -105,5 +107,6 @@ fun HomeScreen(navController: NavController) {
                 }
             }
         )
+
     }
 }
