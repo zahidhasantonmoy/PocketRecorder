@@ -62,6 +62,12 @@ fun SettingsScreen(navController: NavController) {
         Spacer(modifier = Modifier.height(16.dp))
         TextField(value = emergencyTaps, onValueChange = { emergencyTaps = it }, label = { Text("Emergency Taps") })
         Spacer(modifier = Modifier.height(16.dp))
+        var videoDuration by remember { mutableStateOf(sharedPreferences.getInt("video_duration", 30).toString()) }
+        TextField(value = videoDuration, onValueChange = { videoDuration = it }, label = { Text("Video Duration (seconds)") })
+        Spacer(modifier = Modifier.height(16.dp))
+        var videoDuration by remember { mutableStateOf(sharedPreferences.getInt("video_duration", 30).toString()) }
+        TextField(value = videoDuration, onValueChange = { videoDuration = it }, label = { Text("Video Duration (seconds)") })
+        Spacer(modifier = Modifier.height(16.dp))
         Text("Sensitivity")
         Row {
             Button(onClick = { sensitivity = "low" }) { Text("Low") }

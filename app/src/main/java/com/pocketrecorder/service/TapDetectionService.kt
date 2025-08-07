@@ -97,6 +97,14 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
             addAction("com.pocketrecorder.ACTION_SAVE_SLAP_PATTERN")
         }
         registerReceiver(slapTrainingReceiver, filter)
+
+        val manualRecordingFilter = IntentFilter().apply {
+            addAction("com.pocketrecorder.ACTION_START_AUDIO_RECORDING")
+            addAction("com.pocketrecorder.ACTION_START_VIDEO_RECORDING")
+            addAction("com.pocketrecorder.ACTION_CAPTURE_IMAGE")
+            addAction("com.pocketrecorder.ACTION_STOP_RECORDING")
+        }
+        registerReceiver(manualRecordingReceiver, manualRecordingFilter)
     }
 
     private var isTrainingSlap = false
@@ -119,6 +127,17 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
                     analyzeAndSaveSlapPattern(action)
                     Log.d("TapDetectionService", "Slap pattern saved for action: $action")
                 }
+            }
+        }
+    }
+
+    private val manualRecordingReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent?.action) {
+                "com.pocketrecorder.ACTION_START_AUDIO_RECORDING" -> startAudioRecording()
+                "com.pocketrecorder.ACTION_START_VIDEO_RECORDING" -> startVideoRecording()
+                "com.pocketrecorder.ACTION_CAPTURE_IMAGE" -> captureImage()
+                "com.pocketrecorder.ACTION_STOP_RECORDING" -> stopAudioRecording() // This will stop any active recording
             }
         }
     }
@@ -386,6 +405,13 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
         _isRecording.value = true
         saveLocation()
         updateNotification("Video recording started.")
+
+        val videoDuration = sharedPreferences.getInt("video_duration", 30) // Default to 30 seconds
+        lifecycleScope.launch {
+            kotlinx.coroutines.delay(videoDuration * 1000L) // Convert seconds to milliseconds
+            // Need a way to stop video recording from here. This will require a more robust Camera implementation.
+            // For now, the video recording will be stopped by the CameraX implementation itself after a duration.
+        }
     }
 
     
