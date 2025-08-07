@@ -1,7 +1,9 @@
 package com.pocketrecorder.ui
 
 import android.Manifest
+import android.content.BroadcastReceiver
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -22,10 +24,14 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import android.content.Context
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -33,6 +39,28 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.pocketrecorder.service.TapDetectionService
 import com.pocketrecorder.ui.theme.PocketRecorderTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.TextField
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import com.pocketrecorder.data.FileRepository
+import java.io.File
 
 private const val TAG = "MainActivity"
 
@@ -58,10 +86,32 @@ class MainActivity : ComponentActivity() {
                     val sharedPrefs = getSharedPreferences("PocketRecorderPrefs", Context.MODE_PRIVATE)
                     val tutorialShown = sharedPrefs.getBoolean("tutorial_shown", false)
 
-                    PocketRecorderApp(tutorialShown) {
+                    val cameraActionViewModel: CameraActionViewModel = viewModel()
+
+                    PocketRecorderApp(tutorialShown, cameraActionViewModel) {
                         sharedPrefs.edit().putBoolean("tutorial_shown", true).apply()
                     }
                     startService(Intent(this, TapDetectionService::class.java))
+
+                    val cameraActionReceiver = object : BroadcastReceiver() {
+                        override fun onReceive(context: Context?, intent: Intent?) {
+                            when (intent?.action) {
+                                "com.pocketrecorder.ACTION_START_VIDEO_RECORDING" -> {
+                                    cameraActionViewModel.setCameraAction(CameraAction.VIDEO)
+                                }
+                                "com.pocketrecorder.ACTION_CAPTURE_IMAGE" -> {
+                                    cameraActionViewModel.setCameraAction(CameraAction.IMAGE)
+                                }
+                            }
+                        }
+                    }
+
+                    val filter = IntentFilter().apply {
+                        addAction("com.pocketrecorder.ACTION_START_VIDEO_RECORDING")
+                        addAction("com.pocketrecorder.ACTION_CAPTURE_IMAGE")
+                    }
+                    LocalBroadcastManager.getInstance(this).registerReceiver(cameraActionReceiver, filter)
+
                 } else {
                     Column {
                         Text("Permissions required")
@@ -83,19 +133,36 @@ sealed class Screen(val route: String, val title: String, val icon: @Composable 
     object Settings : Screen("settings", "Settings", { Icon(Icons.Filled.Settings, contentDescription = "Settings") })
     object RecordedFiles : Screen("recorded_files", "Files", { Icon(Icons.Filled.List, contentDescription = "Recorded Files") })
     object Tutorial : Screen("tutorial", "Tutorial", { Icon(Icons.Filled.Home, contentDescription = "Tutorial") }) // No icon for tutorial
+    object Camera : Screen("camera", "Camera", { Icon(Icons.Filled.Home, contentDescription = "Camera") })
 }
 
 @Composable
-fun PocketRecorderApp(tutorialShown: Boolean, onTutorialComplete: () -> Unit) {
+fun PocketRecorderApp(tutorialShown: Boolean, cameraActionViewModel: CameraActionViewModel, onTutorialComplete: () -> Unit) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+
+    val cameraAction by cameraActionViewModel.cameraAction.collectAsState()
+
+    LaunchedEffect(cameraAction) {
+        when (cameraAction) {
+            CameraAction.VIDEO -> {
+                navController.navigate(Screen.Camera.route + "/video")
+                cameraActionViewModel.resetCameraAction()
+            }
+            CameraAction.IMAGE -> {
+                navController.navigate(Screen.Camera.route + "/image")
+                cameraActionViewModel.resetCameraAction()
+            }
+            CameraAction.NONE -> { /* Do nothing */ }
+        }
+    }
 
     Scaffold(
         bottomBar = {
             if (currentRoute != Screen.Tutorial.route) { // Hide bottom bar on tutorial screen
                 NavigationBar {
-                    val items = listOf(Screen.Home, Screen.Settings)
+                    val items = listOf(Screen.Home, Screen.RecordedFiles, Screen.Settings)
                     items.forEach { screen ->
                         NavigationBarItem(
                             icon = { screen.icon() },
@@ -103,16 +170,10 @@ fun PocketRecorderApp(tutorialShown: Boolean, onTutorialComplete: () -> Unit) {
                             selected = currentRoute == screen.route,
                             onClick = {
                                 navController.navigate(screen.route) {
-                                    // Pop up to the start destination of the graph to
-                                    // avoid building up a large stack of destinations
-                                    // on the back stack as users select items
                                     popUpTo(navController.graph.startDestinationId) {
                                         saveState = true
                                     }
-                                    // Avoid multiple copies of the same destination when
-                                    // reselecting the same item
                                     launchSingleTop = true
-                                    // Restore state when reselecting a previously selected item
                                     restoreState = true
                                 }
                             }
@@ -129,8 +190,109 @@ fun PocketRecorderApp(tutorialShown: Boolean, onTutorialComplete: () -> Unit) {
         ) {
             composable(Screen.Home.route) { HomeScreen(navController) }
             composable(Screen.Settings.route) { SettingsScreen() }
+            composable(Screen.RecordedFiles.route) {
+                val context = LocalContext.current
+                val fileRepository = remember { FileRepository(context) }
+                val viewModel: RecordedFilesViewModel = viewModel(factory = RecordedFilesViewModelFactory(fileRepository))
+                RecordedFilesScreen(viewModel)
+            }
             composable(Screen.Tutorial.route) { TutorialScreen(onTutorialComplete = { navController.navigate(Screen.Home.route) }) }
+            composable(Screen.Camera.route + "/{action}") {
+                val action = it.arguments?.getString("action")
+                CameraScreen(navController, action)
+            }
         }
     }
 }
 
+@Composable
+fun HomeScreen(navController: NavController) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Text("Welcome to PocketRecorder", style = MaterialTheme.typography.headlineMedium)
+        // Add more UI elements here
+    }
+}
+
+@Composable
+fun SettingsScreen() {
+    val context = LocalContext.current
+    val sharedPreferences = remember { context.getSharedPreferences("PocketRecorderPrefs", Context.MODE_PRIVATE) }
+    var videoDuration by remember { mutableStateOf(sharedPreferences.getInt("recording_duration", 30).toString()) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Text("Settings", style = MaterialTheme.typography.headlineMedium)
+        Spacer(modifier = Modifier.height(16.dp))
+        TextField(
+            value = videoDuration,
+            onValueChange = { videoDuration = it },
+            label = { Text("Video Recording Duration (seconds)") }
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(onClick = {
+            sharedPreferences.edit().putInt("recording_duration", videoDuration.toInt()).apply()
+        }) {
+            Text("Save")
+        }
+    }
+}
+
+@Composable
+fun RecordedFilesScreen(viewModel: RecordedFilesViewModel) {
+    val recordedFiles by viewModel.recordedFiles.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.loadRecordedFiles()
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Text("Recorded Files", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(16.dp))
+        LazyColumn(modifier = Modifier.weight(1f)) {
+            items(recordedFiles) { file ->
+                FileListItem(file, onDelete = { viewModel.deleteFile(file) })
+            }
+        }
+    }
+}
+
+@Composable
+fun TutorialScreen(onTutorialComplete: () -> Unit) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Text("Tutorial", style = MaterialTheme.typography.headlineMedium)
+        Button(onClick = onTutorialComplete) {
+            Text("Skip Tutorial")
+        }
+    }
+}
+
+@Composable
+fun CameraScreen(navController: NavController, action: String?) {
+    // Camera implementation goes here
+    Text("Camera Action: $action")
+}
+
+@Composable
+fun FileListItem(file: File, onDelete: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Filled.PlayArrow, contentDescription = "Play")
+            Spacer(modifier = Modifier.size(16.dp))
+            Text(file.name, modifier = Modifier.weight(1f))
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Filled.Delete, contentDescription = "Delete")
+            }
+        }
+    }
+}

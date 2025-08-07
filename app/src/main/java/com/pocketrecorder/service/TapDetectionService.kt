@@ -17,7 +17,7 @@ import android.os.Build
 import android.os.IBinder
 import android.telephony.SmsManager
 import android.util.Log
-import androidx.camera.lifecycle.ProcessCameraProvider
+
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
@@ -31,7 +31,7 @@ import com.pocketrecorder.R
 import com.pocketrecorder.data.AppDatabase
 import com.pocketrecorder.data.Contact
 import com.pocketrecorder.data.Location as AppLocation
-import com.pocketrecorder.utils.CameraUtil
+
 import com.pocketrecorder.utils.RecorderUtil
 
 import com.pocketrecorder.utils.VoiceUtil
@@ -282,17 +282,24 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
         val imageTaps = sharedPreferences.getInt("image_taps", 2)
         val emergencyTaps = sharedPreferences.getInt("emergency_taps", 5)
 
+        Log.d("PocketRecorder", "Handling tap action for tap count: $tapCount")
+        Log.d("PocketRecorder", "Audio taps: $audioTaps, Video taps: $videoTaps, Image taps: $imageTaps, Emergency taps: $emergencyTaps")
+
         when (tapCount) {
             audioTaps -> {
+                Log.d("PocketRecorder", "Starting audio recording...")
                 startAudioRecording()
             }
             videoTaps -> {
+                Log.d("PocketRecorder", "Starting video recording...")
                 startVideoRecording()
             }
             imageTaps -> {
+                Log.d("PocketRecorder", "Capturing image...")
                 captureImage()
             }
             emergencyTaps -> {
+                Log.d("PocketRecorder", "Triggering emergency mode...")
                 triggerEmergencyMode()
             }
         }
@@ -358,28 +365,20 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
     }
 
     private fun startVideoRecording() {
-        val videoFile = RecorderUtil.createVideoFile(applicationContext)
-        CameraUtil.startRecordingVideo(applicationContext, this, videoFile) {
-            // Handle video recorded callback
-            _isRecording.value = true
-            saveLocation()
-            updateNotification("Video recording started.")
-        }
+        val intent = Intent("com.pocketrecorder.ACTION_START_VIDEO_RECORDING")
+        sendBroadcast(intent)
+        _isRecording.value = true
+        saveLocation()
+        updateNotification("Video recording started.")
     }
 
-    private fun stopVideoRecording() {
-        CameraUtil.stopRecordingVideo()
-        _isRecording.value = false
-        updateNotification("Video recording stopped.")
-    }
+    
 
     private fun captureImage() {
-        val imageFile = RecorderUtil.createImageFile(applicationContext)
-        CameraUtil.captureImage(applicationContext, this, imageFile) {
-            // Handle image captured callback
-            saveLocation()
-            updateNotification("Image captured.")
-        }
+        val intent = Intent("com.pocketrecorder.ACTION_CAPTURE_IMAGE")
+        sendBroadcast(intent)
+        saveLocation()
+        updateNotification("Image captured.")
     }
 
     private fun triggerEmergencyMode() {
@@ -450,7 +449,6 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
         super.onDestroy()
         sensorManager.unregisterListener(this)
         stopAudioRecording()
-        stopVideoRecording()
         // No explicit stop for image capture needed as it's a single shot
     }
 }
