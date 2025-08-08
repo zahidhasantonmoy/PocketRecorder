@@ -7,12 +7,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.io.File
+import androidx.documentfile.provider.DocumentFile
 
 class RecordedFilesViewModel(private val fileRepository: FileRepository) : ViewModel() {
 
-    private val _recordedFiles = MutableStateFlow<List<File>>(emptyList())
-    val recordedFiles: StateFlow<List<File>> = _recordedFiles.asStateFlow()
+    private val _recordedFiles = MutableStateFlow<List<DocumentFile>>(emptyList())
+    val recordedFiles: StateFlow<List<DocumentFile>> = _recordedFiles.asStateFlow()
 
     fun loadRecordedFiles() {
         viewModelScope.launch {
@@ -20,7 +20,7 @@ class RecordedFilesViewModel(private val fileRepository: FileRepository) : ViewM
         }
     }
 
-    fun deleteFile(file: File) {
+    fun deleteFile(file: DocumentFile) {
         viewModelScope.launch {
             fileRepository.deleteFile(file)
             loadRecordedFiles() // Refresh the list

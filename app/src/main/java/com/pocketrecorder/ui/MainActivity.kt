@@ -43,12 +43,6 @@ import androidx.compose.ui.platform.LocalContext
 import com.pocketrecorder.data.FileRepository
 import com.pocketrecorder.ui.HomeScreen
 import com.pocketrecorder.ui.SettingsScreen
-import com.pocketrecorder.ui.RecordedFilesScreen
-import com.pocketrecorder.ui.SlapTrainingScreen
-import com.pocketrecorder.ui.TutorialScreen
-import com.pocketrecorder.ui.HomeScreen
-import com.pocketrecorder.ui.SettingsScreen
-import com.pocketrecorder.ui.RecordedFilesScreen
 import com.pocketrecorder.ui.SlapTrainingScreen
 import com.pocketrecorder.ui.TutorialScreen
 

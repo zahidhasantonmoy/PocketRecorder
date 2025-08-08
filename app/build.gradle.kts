@@ -6,12 +6,12 @@ plugins {
 
 android {
     namespace = "com.pocketrecorder"
-    compileSdk = 35
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.pocketrecorder"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
 
@@ -116,4 +116,5 @@ dependencies {
     // Permissions
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
     implementation("androidx.compose.runtime:runtime-livedata:1.6.8")
+    implementation("androidx.documentfile:documentfile:1.0.1")
 }

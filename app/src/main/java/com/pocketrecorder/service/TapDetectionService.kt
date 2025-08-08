@@ -68,6 +68,7 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
 
     // For sensor data visualization
     companion object {
+        private const val TAG = "TapDetectionService"
         private val _currentAcceleration = MutableStateFlow(0f)
         val currentAcceleration: StateFlow<Float> = _currentAcceleration.asStateFlow()
 
@@ -130,10 +131,10 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
                 ExistingPeriodicWorkPolicy.UPDATE,
                 periodicWorkRequest
             )
-            Log.d("TapDetectionService", "Periodic recording scheduled every $periodicRecordingInterval seconds.")
+            Log.d(TAG, "Periodic recording scheduled every $periodicRecordingInterval seconds.")
         } else {
             WorkManager.getInstance(applicationContext).cancelUniqueWork("PeriodicRecordingWork")
-            Log.d("TapDetectionService", "Periodic recording cancelled.")
+            Log.d(TAG, "Periodic recording cancelled.")
         }
     }
 
@@ -146,16 +147,16 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
                 "com.pocketrecorder.ACTION_START_SLAP_TRAINING" -> {
                     isTrainingSlap = true
                     slapTrainingData.clear()
-                    Log.d("TapDetectionService", "Slap training started.")
+                    Log.d(TAG, "Slap training started.")
                 }
                 "com.pocketrecorder.ACTION_STOP_SLAP_TRAINING" -> {
                     isTrainingSlap = false
-                    Log.d("TapDetectionService", "Slap training stopped. Analyzing data...")
+                    Log.d(TAG, "Slap training stopped. Analyzing data...")
                 }
                 "com.pocketrecorder.ACTION_SAVE_SLAP_PATTERN" -> {
                     val action = intent.getStringExtra("action")
                     analyzeAndSaveSlapPattern(action)
-                    Log.d("TapDetectionService", "Slap pattern saved for action: $action")
+                    Log.d(TAG, "Slap pattern saved for action: $action")
                 }
             }
         }
@@ -183,6 +184,7 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
                     updateNotification("Image captured.")
                 }
                 "com.pocketrecorder.ACTION_STOP_RECORDING" -> {
+                    Log.d(TAG, "ACTION_STOP_RECORDING received.")
                     stopAudioRecording() // This will stop any active audio recording
                     val cameraIntent = Intent(context, CameraRecordingService::class.java).apply {
                         action = CameraRecordingService.ACTION_STOP_VIDEO_RECORDING
@@ -249,19 +251,20 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
         }
         _accelerationHistory.value = newHistory
 
+        Log.d(TAG, "handleAccelerometerEvent: acceleration=%.2f, tapCount=%d, isDeviceInPocket=$isDeviceInPocket, isDeviceUpright=$isDeviceUpright".format(acceleration, tapCount))
         if (isTrainingSlap) {
             slapTrainingData.add(floatArrayOf(x, y, z))
-            Log.d("TapDetectionService", "Training data added: %.2f".format(acceleration))
+            Log.d(TAG, "Training data added: %.2f".format(acceleration))
             return // Don't process as a tap during training
         }
 
         // Slap detection
         val savedSlapSignatureString = sharedPreferences.getString("slap_signature", null)
+        val slapAction = sharedPreferences.getString("slap_action", "audio") ?: "audio"
         if (savedSlapSignatureString != null) {
             val savedSlapSignature = savedSlapSignatureString.split(",").map { it.toFloat() }.toFloatArray()
             if (isSlapDetected(acceleration.toFloat(), savedSlapSignature)) {
-                Log.d("TapDetectionService", "Slap detected!")
-                val slapAction = sharedPreferences.getString("slap_action", "audio") ?: "audio"
+                Log.d(TAG, "Slap detected! Action: $slapAction")
                 when (slapAction) {
                     "audio" -> startAudioRecording()
                     "video" -> startVideoRecording()
@@ -284,24 +287,25 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
             val currentTime = System.currentTimeMillis()
             if (currentTime - lastTapTime > 1000) { // 1-second threshold for a new sequence
                 tapCount = 0
-                Log.d("PocketRecorder", "Tap sequence reset due to timeout.")
+                Log.d(TAG, "Tap sequence reset due to timeout.")
             }
             lastTapTime = currentTime
             tapCount++
-            Log.d("PocketRecorder", "Acceleration: %.2f, Tap Count: %d".format(acceleration, tapCount))
+            Log.d(TAG, "Acceleration: %.2f, Tap Count: %d".format(acceleration, tapCount))
 
             if (shouldTriggerAction()) {
-                Log.d("PocketRecorder", "Should trigger action is true. Current tap count: $tapCount")
+                Log.d(TAG, "Should trigger action is true. Current tap count: $tapCount")
                 handleTapAction()
             } else {
-                Log.d("PocketRecorder", "Should trigger action is false. isDeviceInPocket: $isDeviceInPocket, isDeviceUpright: $isDeviceUpright")
+                Log.d(TAG, "Should trigger action is false. isDeviceInPocket: $isDeviceInPocket, isDeviceUpright: $isDeviceUpright")
             }
         }
     }
 
     private fun analyzeAndSaveSlapPattern(action: String?) {
+        Log.d(TAG, "analyzeAndSaveSlapPattern called for action: $action")
         if (slapTrainingData.isEmpty()) {
-            Log.d("TapDetectionService", "No slap training data to analyze.")
+            Log.d(TAG, "No slap training data to analyze.")
             return
         }
 
@@ -337,7 +341,7 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
             .putString("slap_signature", signatureString)
             .putString("slap_action", action)
             .apply()
-        Log.d("TapDetectionService", "Slap pattern saved with signature: $signatureString for action: $action")
+        Log.d(TAG, "Slap pattern saved with signature: $signatureString for action: $action")
         slapTrainingData.clear()
     }
 
@@ -368,30 +372,31 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
         val imageTaps = sharedPreferences.getInt("image_taps", 2)
         val emergencyTaps = sharedPreferences.getInt("emergency_taps", 5)
 
-        Log.d("PocketRecorder", "Handling tap action for tap count: $tapCount")
-        Log.d("PocketRecorder", "Audio taps: $audioTaps, Video taps: $videoTaps, Image taps: $imageTaps, Emergency taps: $emergencyTaps")
+        Log.d(TAG, "Handling tap action for tap count: $tapCount")
+        Log.d(TAG, "Audio taps: $audioTaps, Video taps: $videoTaps, Image taps: $imageTaps, Emergency taps: $emergencyTaps")
 
         when (tapCount) {
             audioTaps -> {
-                Log.d("PocketRecorder", "Starting audio recording...")
+                Log.d(TAG, "Starting audio recording...")
                 startAudioRecording()
             }
             videoTaps -> {
-                Log.d("PocketRecorder", "Starting video recording...")
+                Log.d(TAG, "Starting video recording...")
                 startVideoRecording()
             }
             imageTaps -> {
-                Log.d("PocketRecorder", "Capturing image...")
+                Log.d(TAG, "Capturing image...")
                 captureImage()
             }
             emergencyTaps -> {
-                Log.d("PocketRecorder", "Triggering emergency mode...")
+                Log.d(TAG, "Triggering emergency mode...")
                 triggerEmergencyMode()
             }
         }
     }
 
     private fun startAudioRecording() {
+        Log.d(TAG, "startAudioRecording called.")
         if (mediaRecorder != null) {
             stopAudioRecording()
         }
@@ -404,22 +409,33 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
             setAudioSource(MediaRecorder.AudioSource.MIC)
             setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
             setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            val audioFile = RecorderUtil.createAudioFile(applicationContext)
-            setOutputFile(audioFile.absolutePath)
-            try {
-                prepare()
-                start()
-                _isRecording.value = true
-                saveLocation()
-                updateNotification("Audio recording started.")
-                // Stop recording after 30 seconds to prevent excessively long recordings
-                val recordingDuration = sharedPreferences.getInt("recording_duration", 30) // Default to 30 seconds
-                lifecycleScope.launch {
-                    kotlinx.coroutines.delay(recordingDuration * 1000L) // Convert seconds to milliseconds
-                    stopAudioRecording()
+
+            val audioDocumentFile = RecorderUtil.createAudioFile(applicationContext)
+            if (audioDocumentFile != null) {
+                try {
+                    val pfd = applicationContext.contentResolver.openFileDescriptor(audioDocumentFile.uri, "w")
+                    if (pfd != null) {
+                        setOutputFile(pfd.fileDescriptor)
+                        prepare()
+                        start()
+                        _isRecording.value = true
+                        saveLocation()
+                        updateNotification("Audio recording started.")
+                        Log.d(TAG, "Audio recording started: ${audioDocumentFile.uri}")
+
+                        val recordingDuration = sharedPreferences.getInt("recording_duration", 30) // Default to 30 seconds
+                        lifecycleScope.launch {
+                            kotlinx.coroutines.delay(recordingDuration * 1000L) // Convert seconds to milliseconds
+                            stopAudioRecording()
+                        }
+                    } else {
+                        Log.e(TAG, "Failed to get ParcelFileDescriptor for audio recording.")
+                    }
+                } catch (e: IOException) {
+                    Log.e(TAG, "Error starting audio recording", e)
                 }
-            } catch (e: IOException) {
-                Log.e("PocketRecorder", "Error starting audio recording", e)
+            } else {
+                Log.e(TAG, "Failed to create audio DocumentFile.")
             }
         }
     }
@@ -431,16 +447,17 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
                     lifecycleScope.launch(Dispatchers.IO) {
                         val appLocation = AppLocation(latitude = it.latitude, longitude = it.longitude, timestamp = System.currentTimeMillis())
                         AppDatabase.getDatabase(applicationContext).locationDao().insert(appLocation)
-                        Log.d("PocketRecorder", "Location saved: ${it.latitude}, ${it.longitude}")
+                        Log.d(TAG, "Location saved: ${it.latitude}, ${it.longitude}")
                     }
                 }
             }
         } else {
-            Log.e("PocketRecorder", "Location permission not granted. Cannot save location.")
+            Log.e(TAG, "Location permission not granted. Cannot save location.")
         }
     }
 
     private fun stopAudioRecording() {
+        Log.d(TAG, "stopAudioRecording called.")
         mediaRecorder?.apply {
             stop()
             release()
@@ -451,6 +468,7 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
     }
 
     private fun startVideoRecording() {
+        Log.d(TAG, "startVideoRecording called.")
         val intent = Intent(this, CameraRecordingService::class.java).apply {
             action = CameraRecordingService.ACTION_START_VIDEO_RECORDING
         }
@@ -468,6 +486,7 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
     }
 
     private fun captureImage() {
+        Log.d(TAG, "captureImage called.")
         val intent = Intent(this, CameraRecordingService::class.java).apply {
             action = CameraRecordingService.ACTION_CAPTURE_IMAGE
         }
@@ -477,6 +496,7 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
     }
 
     private fun triggerEmergencyMode() {
+        Log.d(TAG, "triggerEmergencyMode called.")
         lifecycleScope.launch(Dispatchers.IO) {
             val contacts = AppDatabase.getDatabase(applicationContext).contactDao().getAllContacts()
             if (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -489,17 +509,18 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
                                 smsManager.sendTextMessage(contact.phoneNumber, null, message, null, null)
                             }
                         } else {
-                            Log.e("PocketRecorder", "SMS permission not granted for emergency mode.")
+                            Log.e(TAG, "SMS permission not granted for emergency mode.")
                         }
                     }
                 }
             } else {
-                Log.e("PocketRecorder", "Location permission not granted for emergency mode.")
+                Log.e(TAG, "Location permission not granted for emergency mode.")
             }
         }
     }
 
     private fun handleVoiceCommand(command: String) {
+        Log.d(TAG, "handleVoiceCommand called with command: $command")
         val passphrase = sharedPreferences.getString("voice_passphrase", "start recording")
         if (command.contains(passphrase!!, ignoreCase = true)) {
             startAudioRecording() // Example action
@@ -507,6 +528,7 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
     }
 
     private fun scheduleFileCleanupWorker() {
+        Log.d(TAG, "scheduleFileCleanupWorker called.")
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
             .build()
@@ -531,10 +553,12 @@ class TapDetectionService : LifecycleService(), SensorEventListener {
         return NotificationCompat.Builder(this, "tap_detection")
             .setContentTitle(getString(R.string.app_name))
             .setContentText(message)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .build()
     }
 
     private fun updateNotification(message: String) {
+        Log.d(TAG, "updateNotification called with message: $message")
         val notification = createNotification(message)
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(1, notification)

@@ -13,6 +13,12 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import android.app.Activity
+import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,6 +51,7 @@ fun SettingsScreen(navController: NavController) {
     var batteryOptimization by remember { mutableStateOf(sharedPreferences.getBoolean("battery_optimization", true)) }
     var tutorialMode by remember { mutableStateOf(sharedPreferences.getBoolean("tutorial_mode", true)) }
     var multilingualSupport by remember { mutableStateOf(sharedPreferences.getBoolean("multilingual_support", true)) }
+    var customSaveLocation by remember { mutableStateOf(sharedPreferences.getString("custom_save_location", "") ?: "") }
 
     Column(
         modifier = Modifier
@@ -122,6 +129,30 @@ fun SettingsScreen(navController: NavController) {
             Text("Multilingual Support")
         }
         Spacer(modifier = Modifier.height(16.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextField(
+                value = customSaveLocation,
+                onValueChange = { customSaveLocation = it },
+                label = { Text("Custom Save Location") },
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            val directoryPickerLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.OpenDocumentTree()
+            ) { uri: Uri? ->
+                uri?.let {
+                    customSaveLocation = it.toString()
+                    context.contentResolver.takePersistableUriPermission(
+                        it,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    )
+                }
+            }
+            Button(onClick = { directoryPickerLauncher.launch(null) }) {
+                Text("Browse")
+            }
+        }
+        Spacer(modifier = Modifier.height(16.dp))
         var periodicRecordingEnabled by remember { mutableStateOf(sharedPreferences.getBoolean("periodic_recording_enabled", false)) }
         var periodicRecordingInterval by remember { mutableStateOf(sharedPreferences.getInt("periodic_recording_interval", 60).toString()) }
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -150,6 +181,7 @@ fun SettingsScreen(navController: NavController) {
                 .putBoolean("battery_optimization", batteryOptimization)
                 .putBoolean("tutorial_mode", tutorialMode)
                 .putBoolean("multilingual_support", multilingualSupport)
+                .putString("custom_save_location", customSaveLocation)
                 .putBoolean("periodic_recording_enabled", periodicRecordingEnabled)
                 .putInt("periodic_recording_interval", periodicRecordingInterval.toInt())
                 .apply()

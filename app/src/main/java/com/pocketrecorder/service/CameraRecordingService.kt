@@ -28,6 +28,9 @@ import com.pocketrecorder.R
 import com.pocketrecorder.utils.RecorderUtil
 import kotlinx.coroutines.launch
 import java.io.File
+import java.io.FileDescriptor
+import java.io.OutputStream
+import androidx.camera.video.VideoRecordEvent
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -37,6 +40,7 @@ class CameraRecordingService : LifecycleService() {
     private var imageCapture: ImageCapture? = null
     private var videoCapture: VideoCapture<Recorder>? = null
     private var recording: Recording? = null
+    private var tempVideoFile: File? = null
     private lateinit var cameraProviderFuture: ListenableFuture<ProcessCameraProvider>
 
     override fun onCreate() {
@@ -93,17 +97,40 @@ class CameraRecordingService : LifecycleService() {
                 cameraProvider.unbindAll()
                 val camera = cameraProvider.bindToLifecycle(this, cameraSelector, preview, videoCapture)
 
-                val videoFile = RecorderUtil.createVideoFile(applicationContext)
-                val outputOptions = FileOutputOptions.Builder(videoFile).build()
+                val videoDocumentFile = RecorderUtil.createVideoFile(applicationContext)
+                tempVideoFile = File(applicationContext.cacheDir, "temp_video_${System.currentTimeMillis()}.mp4")
+                val outputOptions = FileOutputOptions.Builder(tempVideoFile!!).build()
 
                 recording = videoCapture!!.output
                     .prepareRecording(this, outputOptions)
                     .withAudioEnabled()
                     .start(ContextCompat.getMainExecutor(this)) { recordEvent ->
-                        // Handle recording events here
+                        if (recordEvent is VideoRecordEvent.Start) {
+                            Log.d(TAG, "Video recording started event received.")
+                        } else if (recordEvent is VideoRecordEvent.Finalize) {
+                            Log.d(TAG, "Video recording finalized event received. Error: ${recordEvent.hasError()}")
+                            if (recordEvent.hasError()) {
+                                Log.e(TAG, "Video recording error: ${recordEvent.error}")
+                            } else {
+                                Log.d(TAG, "Video recording finalized: ${recordEvent.outputResults.outputUri}")
+                                videoDocumentFile?.let { docFile ->
+                                    try {
+                                        applicationContext.contentResolver.openOutputStream(docFile.uri)?.use { outputStream ->
+                                            tempVideoFile?.inputStream()?.use { inputStream ->
+                                                inputStream.copyTo(outputStream)
+                                            }
+                                        }
+                                        Log.d(TAG, "Video copied to: ${docFile.uri}")
+                                    } catch (e: Exception) {
+                                        Log.e(TAG, "Error copying video to DocumentFile: ${e.message}", e)
+                                    }
+                                    tempVideoFile?.delete() // Delete temporary file
+                                }
+                            }
+                        }
                         Log.d(TAG, "Video recording event: $recordEvent")
                     }
-                Log.d(TAG, "Video recording started: ${videoFile.absolutePath}")
+                Log.d(TAG, "Video recording started: ${tempVideoFile?.absolutePath}")
 
                 // Stop recording after a certain duration (e.g., from shared preferences)
                 val sharedPreferences = applicationContext.getSharedPreferences("PocketRecorderPrefs", Context.MODE_PRIVATE)
@@ -120,9 +147,14 @@ class CameraRecordingService : LifecycleService() {
     }
 
     private fun stopVideoRecording() {
-        recording?.stop()
-        recording = null
-        Log.d(TAG, "Video recording stopped.")
+        Log.d(TAG, "stopVideoRecording called. Current recording: $recording")
+        if (recording != null) {
+            recording?.stop()
+            recording = null
+            Log.d(TAG, "Video recording stopped successfully.")
+        } else {
+            Log.d(TAG, "No active video recording to stop.")
+        }
     }
 
     private fun captureImage() {
@@ -137,22 +169,26 @@ class CameraRecordingService : LifecycleService() {
                 cameraProvider.bindToLifecycle(this, cameraSelector, imageCapture)
 
                 val imageFile = RecorderUtil.createImageFile(applicationContext)
-                val outputOptions = ImageCapture.OutputFileOptions.Builder(imageFile).build()
+                val outputOptions = imageFile?.let { ImageCapture.OutputFileOptions.Builder(applicationContext.contentResolver.openOutputStream(it.uri) as OutputStream).build() }
 
-                imageCapture.takePicture(
-                    outputOptions,
-                    ContextCompat.getMainExecutor(this),
-                    object : ImageCapture.OnImageSavedCallback {
-                        override fun onError(exc: ImageCaptureException) {
-                            Log.e(TAG, "Photo capture failed: ${exc.message}", exc)
-                        }
+                if (outputOptions != null) {
+                    imageCapture.takePicture(
+                        outputOptions,
+                        ContextCompat.getMainExecutor(this),
+                        object : ImageCapture.OnImageSavedCallback {
+                            override fun onError(exc: ImageCaptureException) {
+                                Log.e(TAG, "Photo capture failed: ${exc.message}", exc)
+                            }
 
-                        override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                            val msg = "Photo capture succeeded: ${imageFile.absolutePath}"
-                            Log.d(TAG, msg)
+                            override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                                val msg = "Photo capture succeeded: ${imageFile?.uri}"
+                                Log.d(TAG, msg)
+                            }
                         }
-                    }
-                )
+                    )
+                } else {
+                    Log.e(TAG, "Failed to create image output options.")
+                }
             } catch (exc: Exception) {
                 Log.e(TAG, "Error capturing image", exc)
             }
