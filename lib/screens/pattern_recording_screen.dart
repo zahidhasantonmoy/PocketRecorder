@@ -95,8 +95,8 @@ class _PatternRecordingScreenState extends State<PatternRecordingScreen> {
                 children: [
                   // Recording indicator
                   Container(
-                    width: 100,
-                    height: 100,
+                    width: 120,
+                    height: 120,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: patternService.isRecording 
@@ -114,7 +114,7 @@ class _PatternRecordingScreenState extends State<PatternRecordingScreen> {
                         patternService.isRecording 
                             ? Icons.stop 
                             : Icons.fiber_manual_record,
-                        size: 50,
+                        size: 60,
                         color: patternService.isRecording 
                             ? Colors.red 
                             : Colors.grey,
@@ -136,8 +136,9 @@ class _PatternRecordingScreenState extends State<PatternRecordingScreen> {
                   ),
                   const SizedBox(height: 10),
                   
-                  // Tap count
-                  if (patternService.isRecording)
+                  // Tap visualization
+                  if (patternService.isRecording) ...[
+                    const SizedBox(height: 10),
                     Text(
                       '${patternService.tapTimestamps.length} taps recorded',
                       style: const TextStyle(
@@ -145,6 +146,37 @@ class _PatternRecordingScreenState extends State<PatternRecordingScreen> {
                         color: Colors.grey,
                       ),
                     ),
+                    const SizedBox(height: 10),
+                    // Visualize taps as circles
+                    SizedBox(
+                      height: 60,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: patternService.tapTimestamps.length,
+                        itemBuilder: (context, index) {
+                          return Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.deepPurple,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${index + 1}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                   
                   const SizedBox(height: 30),
                   
@@ -232,6 +264,33 @@ class _PatternRecordingScreenState extends State<PatternRecordingScreen> {
             ),
             
             const SizedBox(height: 30),
+            
+            // Pattern training tips
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pattern Training Tips:',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 10),
+                    Text('• Tap firmly but not too hard on the back of your phone'),
+                    Text('• Keep consistent timing between taps'),
+                    Text('• Practice your pattern a few times before recording'),
+                    Text('• 2-5 taps work best for reliable detection'),
+                    Text('• The app detects ~60% pattern similarity for activation'),
+                  ],
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 20),
             
             // Instructions
             const Card(
