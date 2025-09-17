@@ -1,33 +1,16 @@
-# PocketRecorder
+# pocket_recorder
 
-A simple and elegant audio recording application built with Flutter.
-
-## Features
-
-- Record audio with high quality
-- Play back recorded audio
-- Save recordings with custom names
-- List all recordings
-- Delete recordings
-- Share recordings
-- Dark/Light theme support
-- Intuitive UI with Material Design
-
-## Technical Details
-
-- Built with Flutter
-- Uses local storage for recordings
-- Implements audio recording and playback
-- Responsive design for different screen sizes
-- State management with Provider
+A new Flutter project.
 
 ## Getting Started
 
-1. Clone the repository
-2. Run `flutter pub get`
-3. Run `flutter run` to start the application
+This project is a starting point for a Flutter application.
 
-## Requirements
+A few resources to get you started if this is your first Flutter project:
 
-- Flutter 3.0 or higher
-- Dart 2.17 or higher
+- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
+- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+
+For help getting started with Flutter development, view the
+[online documentation](https://docs.flutter.dev/), which offers tutorials,
+samples, guidance on mobile development, and a full API reference.
