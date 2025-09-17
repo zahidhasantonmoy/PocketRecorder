@@ -7,6 +7,7 @@ import 'screens/pattern_settings_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/background_pattern_service.dart';
 import 'services/sos_service.dart';
+import 'services/pattern_recording_service.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
 
@@ -24,6 +25,9 @@ void main() async {
         ),
         ChangeNotifierProvider(
           create: (context) => SOSService(),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => PatternRecordingService(),
         ),
       ],
       child: const MyApp(),
@@ -63,7 +67,7 @@ class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  State<MainScreen> widget() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
