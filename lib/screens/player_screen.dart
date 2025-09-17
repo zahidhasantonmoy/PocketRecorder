@@ -13,15 +13,6 @@ class PlayerScreen extends StatefulWidget {
 }
 
 class _PlayerScreenState extends State<PlayerScreen> {
-  late double _sliderValue;
-  bool _isPlaying = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _sliderValue = 0.0;
-  }
-
   @override
   Widget build(BuildContext context) {
     final recorderProvider = Provider.of<RecorderProvider>(context);
@@ -69,13 +60,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
             const SizedBox(height: 30),
             // Progress slider
             Slider(
-              value: _sliderValue,
+              value: recorderProvider.currentPlaybackPosition,
               min: 0.0,
               max: widget.recording.duration,
               onChanged: (value) {
-                setState(() {
-                  _sliderValue = value;
-                });
+                recorderProvider.seekPlayback(value);
               },
             ),
             // Time indicators
@@ -84,7 +73,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(_formatDuration(_sliderValue)),
+                  Text(_formatDuration(recorderProvider.currentPlaybackPosition)),
                   Text(_formatDuration(widget.recording.duration)),
                 ],
               ),
@@ -97,18 +86,29 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 // Play/Pause button
                 FloatingActionButton(
                   onPressed: () {
-                    setState(() {
-                      _isPlaying = !_isPlaying;
-                    });
-                    
-                    if (_isPlaying) {
-                      recorderProvider.startPlayback(widget.recording.path);
+                    if (recorderProvider.isPlaying && 
+                        recorderProvider.currentPlayingPath == widget.recording.path) {
+                      recorderProvider.pausePlayback();
                     } else {
-                      recorderProvider.stopPlayback();
+                      recorderProvider.startPlayback(widget.recording.path);
                     }
                   },
                   child: Icon(
-                    _isPlaying ? Icons.pause : Icons.play_arrow,
+                    recorderProvider.isPlaying && 
+                            recorderProvider.currentPlayingPath == widget.recording.path
+                        ? Icons.pause
+                        : Icons.play_arrow,
+                    size: 30,
+                  ),
+                ),
+                const SizedBox(width: 20),
+                // Stop button
+                FloatingActionButton(
+                  onPressed: () {
+                    recorderProvider.stopPlayback();
+                  },
+                  child: const Icon(
+                    Icons.stop,
                     size: 30,
                   ),
                 ),
