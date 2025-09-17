@@ -14,16 +14,20 @@ class RecorderProvider with ChangeNotifier {
   bool _isRecording = false;
   bool _isPlaying = false;
   String _currentRecordingPath = '';
+  String _currentPlayingPath = '';
   double _recordedDuration = 0.0;
   double _currentPlaybackPosition = 0.0;
+  double _currentPlaybackDuration = 0.0;
   List<Recording> _recordings = [];
   
   // Getters
   bool get isRecording => _isRecording;
   bool get isPlaying => _isPlaying;
   String get currentRecordingPath => _currentRecordingPath;
+  String get currentPlayingPath => _currentPlayingPath;
   double get recordedDuration => _recordedDuration;
   double get currentPlaybackPosition => _currentPlaybackPosition;
+  double get currentPlaybackDuration => _currentPlaybackDuration;
   List<Recording> get recordings => _recordings;
   
   RecorderProvider() {
@@ -35,6 +39,20 @@ class RecorderProvider with ChangeNotifier {
     await _player.openPlayer();
     await _requestPermissions();
     await loadRecordings();
+    
+    // Listen to player state changes
+    _player.playerStateStream.listen((state) {
+      if (state == PlayerState.isStopped || state == PlayerState.isPaused) {
+        _isPlaying = false;
+        notifyListeners();
+      }
+    });
+    
+    // Listen to player position updates
+    _player.onProgress = (position) {
+      _currentPlaybackPosition = position.duration.inMilliseconds.toDouble() / 1000;
+      notifyListeners();
+    };
   }
   
   Future<void> _requestPermissions() async {
@@ -98,64 +116,82 @@ class RecorderProvider with ChangeNotifier {
   }
   
   Future<void> startPlayback(String path) async {
-    if (_isPlaying) return;
+    if (_isPlaying && _currentPlayingPath == path) {
+      await _player.resumePlayer();
+      return;
+    }
     
     try {
+      // Stop any current playback
+      if (_isPlaying) {
+        await _player.stopPlayer();
+      }
+      
+      _currentPlayingPath = path;
+      _isPlaying = true;
+      
+      // Get the duration of the audio file
+      final duration = await _player.getDurationFromURL(path);
+      _currentPlaybackDuration = duration.inMilliseconds.toDouble() / 1000;
+      
       await _player.startPlayer(
         fromURI: path,
         codec: Codec.aacMP4,
       );
       
-      _isPlaying = true;
-      _currentPlaybackPosition = 0.0;
       notifyListeners();
-      
-      // Listen to playback progress
-      _player.playerStateStream.listen((state) {
-        if (state == PlayerState.isStopped) {
-          _isPlaying = false;
-          _currentPlaybackPosition = 0.0;
-          notifyListeners();
-        }
-      });
-      
-      // Update playback position periodically
-      Timer.periodic(const Duration(milliseconds: 100), (timer) {
-        if (!_isPlaying) {
-          timer.cancel();
-          return;
-        }
-        _currentPlaybackPosition += 0.1;
-        notifyListeners();
-      });
     } catch (e) {
       print('Error starting playback: $e');
+      _isPlaying = false;
+      notifyListeners();
+    }
+  }
+  
+  Future<void> pausePlayback() async {
+    if (!_isPlaying) return;
+    
+    try {
+      await _player.pausePlayer();
+      _isPlaying = false;
+      notifyListeners();
+    } catch (e) {
+      print('Error pausing playback: $e');
     }
   }
   
   Future<void> stopPlayback() async {
-    if (!_isPlaying) return;
-    
     try {
       await _player.stopPlayer();
       _isPlaying = false;
       _currentPlaybackPosition = 0.0;
+      _currentPlayingPath = '';
       notifyListeners();
     } catch (e) {
       print('Error stopping playback: $e');
     }
   }
   
+  Future<void> seekPlayback(double seconds) async {
+    try {
+      await _player.seekToPlayer(Duration(milliseconds: (seconds * 1000).toInt()));
+      _currentPlaybackPosition = seconds;
+      notifyListeners();
+    } catch (e) {
+      print('Error seeking playback: $e');
+    }
+  }
+  
   Future<void> deleteRecording(String id) async {
-    final recording = _recordings.firstWhere((r) => r.id == id);
-    if (recording != null) {
+    final index = _recordings.indexWhere((r) => r.id == id);
+    if (index != -1) {
       try {
+        final recording = _recordings[index];
         final file = File(recording.path);
         if (await file.exists()) {
           await file.delete();
         }
         
-        _recordings.removeWhere((r) => r.id == id);
+        _recordings.removeAt(index);
         await _saveRecordings();
         notifyListeners();
       } catch (e) {
