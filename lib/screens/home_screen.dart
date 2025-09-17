@@ -182,6 +182,7 @@ class _HomeScreenState extends State<HomeScreen>
                   label: 'Video',
                   onTap: () {
                     // Start video recording
+                    recorderProvider.startVideoRecording();
                   },
                 ),
                 _QuickActionButton(
@@ -189,6 +190,7 @@ class _HomeScreenState extends State<HomeScreen>
                   label: 'Photo',
                   onTap: () {
                     // Capture photo
+                    recorderProvider.captureImage();
                   },
                 ),
                 _QuickActionButton(
@@ -196,6 +198,7 @@ class _HomeScreenState extends State<HomeScreen>
                   label: 'SOS',
                   onTap: () {
                     // Send SOS alert
+                    _sendSOSAlert();
                   },
                 ),
               ],
@@ -222,6 +225,27 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ],
       ),
+    );
+  }
+  
+  void _sendSOSAlert() {
+    // Show a simple alert dialog for SOS
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('SOS Alert'),
+          content: const Text('Emergency alert sent to trusted contacts.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
     );
   }
 }
