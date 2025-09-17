@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../recorder_provider.dart';
 import '../recording.dart';
 import '../screens/player_screen.dart';
@@ -44,7 +45,7 @@ class RecordingListItem extends StatelessWidget {
                 _showRenameDialog(context, recorderProvider, recording);
                 break;
               case 'share':
-                _shareRecording(recording);
+                _shareRecording(context, recording);
                 break;
               case 'delete':
                 _showDeleteConfirmation(context, recorderProvider, recording);
@@ -159,16 +160,8 @@ class RecordingListItem extends StatelessWidget {
     );
   }
 
-  void _shareRecording(Recording recording) {
-    // In a real app, you would implement sharing functionality here
-    // For now, we'll just show a snackbar
-    final snackBar = SnackBar(
-      content: Text('Sharing ${recording.name}...'),
-      duration: const Duration(seconds: 2),
-    );
-    // Find the ScaffoldMessenger in the widget tree
-    // and use it to show a SnackBar.
-    ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(snackBar);
+  void _shareRecording(BuildContext context, Recording recording) {
+    Share.shareXFiles([XFile(recording.path)]);
   }
 
   void _showDeleteConfirmation(
@@ -200,6 +193,3 @@ class RecordingListItem extends StatelessWidget {
     );
   }
 }
-
-// Global navigator key for accessing context
-final navigatorKey = GlobalKey<NavigatorState>();
