@@ -61,12 +61,18 @@ class _HomeScreenState extends State<HomeScreen>
             child: GestureDetector(
               onTapDown: (_) {
                 _animationController.forward();
+                // Start recording when pressed
+                recorderProvider.startRecording();
               },
               onTapUp: (_) {
                 _animationController.reverse();
+                // Stop recording when released
+                recorderProvider.stopRecording();
               },
               onTapCancel: () {
                 _animationController.reverse();
+                // Stop recording if cancelled
+                recorderProvider.stopRecording();
               },
               child: AnimatedBuilder(
                 animation: _scaleAnimation,
