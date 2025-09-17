@@ -58,6 +58,9 @@ dependencies:
   
   # For background service
   flutter_foreground_task: ^8.0.0
+  
+  # For launching URLs
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_test:
