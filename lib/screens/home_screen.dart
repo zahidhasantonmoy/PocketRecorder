@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../recorder_provider.dart';
+import '../utils/formatting_utils.dart';
 import 'recordings_screen.dart';
 import 'settings_screen.dart';
 
@@ -133,20 +134,12 @@ class _HomeScreenState extends State<HomeScreen>
           const SizedBox(height: 10),
           Text(
             recorderProvider.isRecording
-                ? _formatDuration(recorderProvider.recordedDuration)
+                ? FormattingUtils.formatDuration(recorderProvider.recordedDuration)
                 : 'Ready to record',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
         ],
       ),
     );
-  }
-
-  String _formatDuration(double seconds) {
-    final duration = Duration(milliseconds: (seconds * 1000).toInt());
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
-    final secs = twoDigits(duration.inSeconds.remainder(60));
-    return '$minutes:$secs';
   }
 }
