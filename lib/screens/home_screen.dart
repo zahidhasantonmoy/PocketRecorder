@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pocket_recorder/services/gesture_detection_service.dart';
+import 'package:pocket_recorder/utils/permission_utils.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -10,14 +11,36 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final GestureDetectionService _gestureService = GestureDetectionService();
-  String _statusText = 'Listening for gestures...';
-  IconData _statusIcon = Icons.touch_app;
+  String _statusText = 'Initializing...';
+  IconData _statusIcon = Icons.hourglass_bottom;
   Color _statusColor = Colors.grey;
+  bool _permissionsGranted = false;
 
   @override
   void initState() {
     super.initState();
-    _initializeGestureDetection();
+    _initializeApp();
+  }
+
+  void _initializeApp() async {
+    // Request necessary permissions
+    final permissions = await PermissionUtils.requestAllPermissions();
+    
+    final allGranted = permissions.values.every((granted) => granted);
+    
+    setState(() {
+      _permissionsGranted = allGranted;
+      if (allGranted) {
+        _statusText = 'Listening for gestures...';
+        _statusIcon = Icons.touch_app;
+        _statusColor = Colors.grey;
+        _initializeGestureDetection();
+      } else {
+        _statusText = 'Permissions required for app to function';
+        _statusIcon = Icons.error;
+        _statusColor = Colors.red;
+      }
+    });
   }
 
   void _initializeGestureDetection() {
@@ -128,14 +151,20 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(height: 32),
-            const Text(
-              'Try double-tapping the back of your phone',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
+            if (!_permissionsGranted)
+              ElevatedButton(
+                onPressed: _initializeApp,
+                child: const Text('Request Permissions'),
+              )
+            else
+              const Text(
+                'Try double-tapping the back of your phone',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
+                ),
               ),
-            ),
           ],
         ),
       ),
