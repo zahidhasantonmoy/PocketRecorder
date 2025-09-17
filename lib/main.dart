@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pocket_recorder/screens/home_screen.dart';
 import 'package:pocket_recorder/screens/settings_screen.dart';
+import 'package:pocket_recorder/screens/media_gallery_screen.dart';
 
 void main() {
   runApp(const PocketRecorderApp());
@@ -35,6 +36,7 @@ class _MainScreenState extends State<MainScreen> {
 
   final List<Widget> _screens = [
     const HomeScreen(),
+    const MediaGalleryScreen(),
     const SettingsScreen(),
   ];
 
@@ -53,6 +55,10 @@ class _MainScreenState extends State<MainScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
             label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.photo_library),
+            label: 'Gallery',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
