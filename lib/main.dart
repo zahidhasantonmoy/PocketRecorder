@@ -2,10 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'recorder_provider.dart';
 import 'screens/home_screen.dart';
+import 'services/background_pattern_service.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Start background pattern detection service
+  await BackgroundPatternDetectionService().startBackgroundService();
+  
   runApp(
     ChangeNotifierProvider(
       create: (context) => RecorderProvider(),
