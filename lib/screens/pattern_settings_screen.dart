@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/settings_service.dart';
 import '../models/pattern_setting.dart';
+import '../services/pattern_storage_service.dart';
+import '../models/pattern_signature.dart';
 import 'sos_settings_screen.dart';
+import 'pattern_recording_screen.dart';
 
 class PatternSettingsScreen extends StatefulWidget {
   const PatternSettingsScreen({super.key});
@@ -13,12 +16,14 @@ class PatternSettingsScreen extends StatefulWidget {
 
 class _PatternSettingsScreenState extends State<PatternSettingsScreen> {
   late List<PatternSetting> _patternSettings;
+  List<PatternSignature> _customPatterns = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _loadPatternSettings();
+    _loadCustomPatterns();
   }
 
   Future<void> _loadPatternSettings() async {
@@ -31,6 +36,11 @@ class _PatternSettingsScreenState extends State<PatternSettingsScreen> {
     setState(() {
       _isLoading = false;
     });
+  }
+
+  Future<void> _loadCustomPatterns() async {
+    _customPatterns = await PatternStorageService().getPatterns();
+    setState(() {});
   }
 
   Future<void> _savePatternSettings() async {
@@ -66,6 +76,11 @@ class _PatternSettingsScreenState extends State<PatternSettingsScreen> {
     });
   }
 
+  void _deleteCustomPattern(String id) async {
+    await PatternStorageService().deletePattern(id);
+    _loadCustomPatterns(); // Reload patterns
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -83,21 +98,107 @@ class _PatternSettingsScreenState extends State<PatternSettingsScreen> {
           : Column(
               children: [
                 Expanded(
-                  child: ListView.builder(
+                  child: ListView(
                     padding: const EdgeInsets.all(16),
-                    itemCount: _patternSettings.length,
-                    itemBuilder: (context, index) {
-                      final pattern = _patternSettings[index];
-                      return _PatternSettingItem(
-                        pattern: pattern,
-                        onUpdate: (updatedPattern) {
-                          _updatePattern(index, updatedPattern);
-                        },
-                        onRemove: () {
-                          _removePattern(index);
-                        },
-                      );
-                    },
+                    children: [
+                      // Default patterns
+                      const Text(
+                        'Default Patterns',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ...List.generate(_patternSettings.length, (index) {
+                        final pattern = _patternSettings[index];
+                        return _PatternSettingItem(
+                          pattern: pattern,
+                          onUpdate: (updatedPattern) {
+                            _updatePattern(index, updatedPattern);
+                          },
+                          onRemove: () {
+                            _removePattern(index);
+                          },
+                        );
+                      }),
+                      
+                      const SizedBox(height: 30),
+                      
+                      // Custom patterns
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Custom Patterns',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const PatternRecordingScreen(),
+                                ),
+                              ).then((_) => _loadCustomPatterns());
+                            },
+                            child: const Text('Add New'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      if (_customPatterns.isEmpty)
+                        const Center(
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.pattern,
+                                size: 60,
+                                color: Colors.grey,
+                              ),
+                              SizedBox(height: 10),
+                              Text(
+                                'No custom patterns recorded yet',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              SizedBox(height: 5),
+                              Text(
+                                'Tap "Add New" to record your first pattern',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        ..._customPatterns.map((pattern) {
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            child: ListTile(
+                              title: Text(pattern.name),
+                              subtitle: Text(
+                                '${pattern.timestamps.length} taps • ${pattern.assignedFunction.capitalize()}',
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.delete),
+                                    onPressed: () => _deleteCustomPattern(pattern.id),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                    ],
                   ),
                 ),
                 Padding(
@@ -265,5 +366,12 @@ class _PatternSettingItemState extends State<_PatternSettingItem> {
         ),
       ),
     );
+  }
+}
+
+// Extension to capitalize first letter
+extension StringExtension on String {
+  String capitalize() {
+    return this[0].toUpperCase() + substring(1);
   }
 }
