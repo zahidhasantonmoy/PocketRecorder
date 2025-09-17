@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../recorder_provider.dart';
-import '../recording.dart';
+import '../models/recording.dart';
 import '../screens/player_screen.dart';
 import '../utils/formatting_utils.dart';
 

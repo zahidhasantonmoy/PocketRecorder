@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../recorder_provider.dart';
-import '../recording.dart';
+import '../models/recording.dart';
 import '../utils/formatting_utils.dart';
 
 class PlayerScreen extends StatefulWidget {

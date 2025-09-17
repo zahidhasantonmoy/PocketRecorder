@@ -5,7 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
 import 'dart:io';
 import 'dart:async';
-import 'recording.dart';
+import 'models/recording.dart';
 
 class RecorderProvider with ChangeNotifier {
   final FlutterSoundRecorder _recorder = FlutterSoundRecorder();
