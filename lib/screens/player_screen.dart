@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../recorder_provider.dart';
 import '../recording.dart';
+import '../utils/formatting_utils.dart';
 
 class PlayerScreen extends StatefulWidget {
   final Recording recording;
@@ -52,7 +53,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             const SizedBox(height: 8),
             // Recording date
             Text(
-              _formatDate(widget.recording.date),
+              FormattingUtils.formatDateTime(widget.recording.date),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Colors.grey,
                   ),
@@ -73,8 +74,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(_formatDuration(recorderProvider.currentPlaybackPosition)),
-                  Text(_formatDuration(widget.recording.duration)),
+                  Text(FormattingUtils.formatDuration(recorderProvider.currentPlaybackPosition)),
+                  Text(FormattingUtils.formatDuration(widget.recording.duration)),
                 ],
               ),
             ),
@@ -118,23 +119,5 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ),
       ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year} at ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
-  }
-
-  String _formatDuration(double seconds) {
-    final duration = Duration(milliseconds: (seconds * 1000).toInt());
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final hours = duration.inHours;
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
-    final secs = twoDigits(duration.inSeconds.remainder(60));
-
-    if (hours > 0) {
-      return '$hours:$minutes:$secs';
-    } else {
-      return '$minutes:$secs';
-    }
   }
 }
