@@ -1,5 +1,5 @@
 name: pocket_recorder
-description: "A new Flutter project."
+description: "A simple and elegant audio recording application built with Flutter."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -34,6 +34,14 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  
+  # Audio recording and playback
+  flutter_sound: ^9.2.13
+  permission_handler: ^11.3.1
+  path_provider: ^2.1.5
+  provider: ^6.1.2
+  intl: ^0.19.0
+  share_plus: ^10.1.2
 
 dev_dependencies:
   flutter_test:
