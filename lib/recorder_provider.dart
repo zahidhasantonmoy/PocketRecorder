@@ -43,9 +43,36 @@ class RecorderProvider with ChangeNotifier {
   Future<void> _init() async {
     await _recorder.openRecorder();
     await _player.openPlayer();
-    await _requestPermissions();
+    await _checkAndRequestPermissions();
     await loadRecordings();
     await _videoService.initializeCamera();
+  }
+  
+  Future<void> _checkAndRequestPermissions() async {
+    // Request all necessary permissions
+    final statuses = await [
+      Permission.microphone,
+      Permission.storage,
+      Permission.camera,
+      Permission.location,
+    ].request();
+    
+    // Check if permissions were granted
+    final micStatus = statuses[Permission.microphone];
+    final cameraStatus = statuses[Permission.camera];
+    final storageStatus = statuses[Permission.storage];
+    
+    if (micStatus != PermissionStatus.granted) {
+      print('Microphone permission not granted');
+    }
+    
+    if (cameraStatus != PermissionStatus.granted) {
+      print('Camera permission not granted');
+    }
+    
+    if (storageStatus != PermissionStatus.granted) {
+      print('Storage permission not granted');
+    }
   }
   
   // Check and request permissions as needed

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'pattern_detector.dart';
-import 'settings_service.dart';
+import '../services/settings_service.dart';
 import 'pattern_storage_service.dart';
 import '../models/pattern_setting.dart';
 import '../models/pattern_signature.dart';
