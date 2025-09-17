@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/settings_service.dart';
 import '../models/pattern_setting.dart';
+import 'sos_settings_screen.dart';
 
 class PatternSettingsScreen extends StatefulWidget {
   const PatternSettingsScreen({super.key});
@@ -79,21 +80,50 @@ class _PatternSettingsScreenState extends State<PatternSettingsScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _patternSettings.length,
-              itemBuilder: (context, index) {
-                final pattern = _patternSettings[index];
-                return _PatternSettingItem(
-                  pattern: pattern,
-                  onUpdate: (updatedPattern) {
-                    _updatePattern(index, updatedPattern);
-                  },
-                  onRemove: () {
-                    _removePattern(index);
-                  },
-                );
-              },
+          : Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _patternSettings.length,
+                    itemBuilder: (context, index) {
+                      final pattern = _patternSettings[index];
+                      return _PatternSettingItem(
+                        pattern: pattern,
+                        onUpdate: (updatedPattern) {
+                          _updatePattern(index, updatedPattern);
+                        },
+                        onRemove: () {
+                          _removePattern(index);
+                        },
+                      );
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SOSSettingsScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.emergency),
+                    label: const Text('SOS Settings'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 15,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
       floatingActionButton: FloatingActionButton(
         onPressed: _addNewPattern,
