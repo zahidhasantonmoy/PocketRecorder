@@ -7,7 +7,7 @@ import '../services/settings_service.dart' as pattern_settings_service;
 import 'pattern_storage_service.dart';
 import '../models/pattern_setting.dart';
 import '../models/pattern_signature.dart';
-import 'app_settings_service.dart';
+import 'app_settings_service.dart' as app_settings_service;
 import '../models/app_settings.dart';
 
 class BackgroundPatternDetectionService {
@@ -28,7 +28,7 @@ class BackgroundPatternDetectionService {
     if (_isServiceRunning) return;
     
     // Load settings to check if discreet mode is enabled
-    final settings = await AppSettingsService().getAppSettings();
+    final settings = await app_settings_service.SettingsService().getAppSettings();
     _isDiscreetMode = settings.discreetMode;
     
     // Load pattern settings
@@ -173,7 +173,7 @@ class BackgroundPatternDetectionService {
   
   // Method to update service when settings change
   Future<void> updateSettings() async {
-    final settings = await AppSettingsService().getAppSettings();
+    final settings = await app_settings_service.SettingsService().getAppSettings();
     final newDiscreetMode = settings.discreetMode;
     
     if (_isDiscreetMode != newDiscreetMode) {
