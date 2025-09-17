@@ -7,6 +7,8 @@ import 'settings_service.dart';
 import 'pattern_storage_service.dart';
 import '../models/pattern_setting.dart';
 import '../models/pattern_signature.dart';
+import 'app_settings_service.dart';
+import '../models/app_settings.dart';
 
 class BackgroundPatternDetectionService {
   static final BackgroundPatternDetectionService _instance = 
@@ -20,9 +22,14 @@ class BackgroundPatternDetectionService {
   List<PatternSetting> _patternSettings = [];
   List<PatternSignature> _customPatterns = [];
   bool _isServiceRunning = false;
+  bool _isDiscreetMode = false;
 
   Future<void> startBackgroundService() async {
     if (_isServiceRunning) return;
+    
+    // Load settings to check if discreet mode is enabled
+    final settings = await SettingsService().getAppSettings();
+    _isDiscreetMode = settings.discreetMode;
     
     // Load pattern settings
     _patternSettings = await SettingsService().getPatternSettings();
@@ -40,10 +47,16 @@ class BackgroundPatternDetectionService {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'pattern_detection_channel',
-        channelName: 'Pattern Detection Service',
-        channelDescription: 'Detects tap patterns on the back of the device',
-        channelImportance: NotificationChannelImportance.LOW,
-        priority: NotificationPriority.LOW,
+        channelName: _isDiscreetMode ? 'Background Service' : 'Pattern Detection Service',
+        channelDescription: _isDiscreetMode 
+            ? 'Keeping app running in background' 
+            : 'Detects tap patterns on the back of the device',
+        channelImportance: _isDiscreetMode 
+            ? NotificationChannelImportance.NONE 
+            : NotificationChannelImportance.LOW,
+        priority: _isDiscreetMode 
+            ? NotificationPriority.MIN 
+            : NotificationPriority.LOW,
       ),
       iosNotificationOptions: const IOSNotificationOptions(
         showNotification: false,
@@ -57,8 +70,10 @@ class BackgroundPatternDetectionService {
     );
     
     FlutterForegroundTask.startService(
-      notificationTitle: 'PocketRecorder',
-      notificationText: 'Listening for tap patterns...',
+      notificationTitle: _isDiscreetMode ? '' : 'PocketRecorder',
+      notificationText: _isDiscreetMode 
+          ? '' 
+          : 'Listening for tap patterns...',
     );
   }
 
@@ -155,4 +170,18 @@ class BackgroundPatternDetectionService {
   }
 
   bool get isServiceRunning => _isServiceRunning;
+  
+  // Method to update service when settings change
+  Future<void> updateSettings() async {
+    final settings = await SettingsService().getAppSettings();
+    final newDiscreetMode = settings.discreetMode;
+    
+    if (_isDiscreetMode != newDiscreetMode) {
+      _isDiscreetMode = newDiscreetMode;
+      
+      // Restart service with new settings
+      stopBackgroundService();
+      await startBackgroundService();
+    }
+  }
 }

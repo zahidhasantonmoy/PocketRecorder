@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../recorder_provider.dart';
 import '../services/app_settings_service.dart';
 import '../models/app_settings.dart';
+import '../services/background_pattern_service.dart';
 import 'developer_info_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -36,6 +37,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _saveSettings() async {
     await SettingsService().saveAppSettings(_settings);
+    // Update background service if settings changed
+    await BackgroundPatternDetectionService().updateSettings();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Settings saved')),
