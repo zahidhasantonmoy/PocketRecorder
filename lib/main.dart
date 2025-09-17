@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'recorder_provider.dart';
 import 'screens/home_screen.dart';
+import 'widgets/recording_list_item.dart';
 
 void main() {
   runApp(
@@ -20,6 +21,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'PocketRecorder',
       debugShowCheckedModeBanner: false,
+      navigatorKey: navigatorKey,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.deepPurple,
