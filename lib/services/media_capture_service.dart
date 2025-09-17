@@ -3,11 +3,15 @@ import 'package:camera/camera.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
+import 'package:pocket_recorder/services/encryption_service.dart';
 
 class MediaCaptureService {
   static final MediaCaptureService _instance = MediaCaptureService._internal();
   factory MediaCaptureService() => _instance;
   MediaCaptureService._internal();
+
+  // Encryption service
+  final EncryptionService _encryptionService = EncryptionService();
 
   // Camera related variables
   CameraController? _cameraController;
@@ -90,11 +94,14 @@ class MediaCaptureService {
       // Move the file to our directory
       await File(photo.path).copy(filePath);
       
+      // Encrypt the file
+      final String? encryptedPath = await _encryptionService.encryptFile(filePath);
+      
       // Dispose of the camera controller
       await _cameraController!.dispose();
       _cameraController = null;
       
-      return filePath;
+      return encryptedPath ?? filePath;
     } catch (e) {
       print('Error capturing photo: $e');
       // Clean up camera controller if needed
@@ -178,11 +185,28 @@ class MediaCaptureService {
 
       final XFile video = await _cameraController!.stopVideoRecording();
       
+      // Get the application documents directory
+      final Directory appDir = await getApplicationDocumentsDirectory();
+      final String mediaDir = path.join(appDir.path, 'media');
+      
+      // Create media directory if it doesn't exist
+      await Directory(mediaDir).create(recursive: true);
+      
+      // Generate a unique filename
+      final String fileName = 'video_${DateTime.now().millisecondsSinceEpoch}.mp4';
+      final String filePath = path.join(mediaDir, fileName);
+      
+      // Move the file to our directory
+      await File(video.path).copy(filePath);
+      
+      // Encrypt the file
+      final String? encryptedPath = await _encryptionService.encryptFile(filePath);
+      
       // Dispose of the camera controller
       await _cameraController!.dispose();
       _cameraController = null;
       
-      return video.path;
+      return encryptedPath ?? filePath;
     } catch (e) {
       print('Error stopping video recording: $e');
       // Clean up camera controller if needed
@@ -237,6 +261,12 @@ class MediaCaptureService {
 
       final String? result = await _audioRecorder!.stopRecorder();
       _isRecordingAudio = false;
+      
+      if (result != null) {
+        // Encrypt the file
+        final String? encryptedPath = await _encryptionService.encryptFile(result);
+        return encryptedPath ?? result;
+      }
       
       return result;
     } catch (e) {
