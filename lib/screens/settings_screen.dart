@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pocket_recorder/models/gesture_pattern.dart';
+import 'package:pocket_recorder/screens/security_screen.dart';
+import 'package:pocket_recorder/screens/gesture_training_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -54,6 +56,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _longSlapAction,
               _onLongSlapChanged,
             ),
+            const SizedBox(height: 16),
+            ListTile(
+              title: const Text('Gesture Training'),
+              subtitle: const Text('Train the app to recognize your tapping style'),
+              trailing: const Icon(Icons.arrow_forward_ios),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const GestureTrainingScreen(),
+                  ),
+                );
+              },
+            ),
             const SizedBox(height: 32),
             const Text(
               'Security Settings',
@@ -64,25 +80,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 16),
             ListTile(
-              title: const Text('App Lock'),
-              subtitle: const Text('Enable PIN/Fingerprint protection'),
-              trailing: Switch(
-                value: false,
-                onChanged: (value) {},
-              ),
+              title: const Text('App Lock & Security'),
+              subtitle: const Text('PIN, fingerprint, encryption, emergency delete'),
+              trailing: const Icon(Icons.arrow_forward_ios),
               onTap: () {
-                // Navigate to app lock settings
-              },
-            ),
-            ListTile(
-              title: const Text('Encryption'),
-              subtitle: const Text('Encrypt media files'),
-              trailing: Switch(
-                value: true,
-                onChanged: (value) {},
-              ),
-              onTap: () {
-                // Navigate to encryption settings
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SecurityScreen(),
+                  ),
+                );
               },
             ),
             const SizedBox(height: 32),
