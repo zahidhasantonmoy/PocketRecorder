@@ -19,6 +19,7 @@ class RecorderProvider with ChangeNotifier {
   double _currentPlaybackPosition = 0.0;
   double _currentPlaybackDuration = 0.0;
   List<Recording> _recordings = [];
+  StreamSubscription? _playerSubscription;
   
   // Getters
   bool get isRecording => _isRecording;
@@ -39,20 +40,6 @@ class RecorderProvider with ChangeNotifier {
     await _player.openPlayer();
     await _requestPermissions();
     await loadRecordings();
-    
-    // Listen to player state changes
-    _player.playerStateStream.listen((state) {
-      if (state == PlayerState.isStopped || state == PlayerState.isPaused) {
-        _isPlaying = false;
-        notifyListeners();
-      }
-    });
-    
-    // Listen to player position updates
-    _player.onProgress = (position) {
-      _currentPlaybackPosition = position.duration.inMilliseconds.toDouble() / 1000;
-      notifyListeners();
-    };
   }
   
   Future<void> _requestPermissions() async {
@@ -125,19 +112,26 @@ class RecorderProvider with ChangeNotifier {
       // Stop any current playback
       if (_isPlaying) {
         await _player.stopPlayer();
+        _playerSubscription?.cancel();
       }
       
       _currentPlayingPath = path;
       _isPlaying = true;
       
       // Get the duration of the audio file
-      final duration = await _player.getDurationFromURL(path);
-      _currentPlaybackDuration = duration.inMilliseconds.toDouble() / 1000;
+      final duration = await _player.getDuration(path);
+      _currentPlaybackDuration = duration?.inMilliseconds.toDouble() ?? 0.0;
       
       await _player.startPlayer(
         fromURI: path,
         codec: Codec.aacMP4,
       );
+      
+      // Listen to player position updates
+      _playerSubscription = _player.onProgress?.listen((position) {
+        _currentPlaybackPosition = position.position.inMilliseconds.toDouble() / 1000;
+        notifyListeners();
+      });
       
       notifyListeners();
     } catch (e) {
@@ -162,6 +156,7 @@ class RecorderProvider with ChangeNotifier {
   Future<void> stopPlayback() async {
     try {
       await _player.stopPlayer();
+      _playerSubscription?.cancel();
       _isPlaying = false;
       _currentPlaybackPosition = 0.0;
       _currentPlayingPath = '';
@@ -231,6 +226,7 @@ class RecorderProvider with ChangeNotifier {
   void dispose() {
     _recorder.closeRecorder();
     _player.closePlayer();
+    _playerSubscription?.cancel();
     super.dispose();
   }
 }
