@@ -23,6 +23,7 @@ class RecorderProvider with ChangeNotifier {
   List<Recording> _recordings = [];
   StreamSubscription? _playerSubscription;
   StreamSubscription? _recorderSubscription;
+  Timer? _durationTimer;
   
   // Getters
   bool get isRecording => _isRecording;
@@ -73,10 +74,14 @@ class RecorderProvider with ChangeNotifier {
       _isRecording = true;
       _recordedDuration = 0.0;
       
-      // Listen to recorder updates
-      _recorderSubscription?.cancel();
-      _recorderSubscription = _recorder.onProgress?.listen((e) {
-        _recordedDuration = e.duration.inMilliseconds.toDouble() / 1000;
+      // Update duration periodically using a timer
+      _durationTimer?.cancel();
+      _durationTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+        if (!_isRecording) {
+          timer.cancel();
+          return;
+        }
+        _recordedDuration += 0.1;
         notifyListeners();
       });
       
@@ -91,21 +96,31 @@ class RecorderProvider with ChangeNotifier {
     
     try {
       await _recorder.stopRecorder();
-      _recorderSubscription?.cancel();
+      _durationTimer?.cancel();
       _isRecording = false;
       
-      // Add the new recording to our list
-      final newRecording = Recording(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        path: _currentRecordingPath,
-        name: 'Recording ${DateFormat('hh:mm a').format(DateTime.now())}',
-        duration: _recordedDuration,
-        date: DateTime.now(),
-      );
-      
-      _recordings.insert(0, newRecording);
-      await _saveRecordings();
-      notifyListeners();
+      // Verify the file was created and has content
+      final file = File(_currentRecordingPath);
+      if (await file.exists()) {
+        final length = await file.length();
+        if (length > 0) {
+          // Add the new recording to our list
+          final newRecording = Recording(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            path: _currentRecordingPath,
+            name: 'Recording ${DateFormat('hh:mm a').format(DateTime.now())}',
+            duration: _recordedDuration,
+            date: DateTime.now(),
+          );
+          
+          _recordings.insert(0, newRecording);
+          await _saveRecordings();
+          notifyListeners();
+        } else {
+          // Delete empty file
+          await file.delete();
+        }
+      }
     } catch (e) {
       print('Error stopping recording: $e');
     }
@@ -119,13 +134,19 @@ class RecorderProvider with ChangeNotifier {
       _isRecording = _videoService.isRecording;
       
       // Listen to video service updates
-      _videoService.addListener(() {
-        notifyListeners();
-      });
+      _videoService.addListener(_onVideoServiceUpdate);
       
       notifyListeners();
     } catch (e) {
       print('Error starting video recording: $e');
+    }
+  }
+  
+  void _onVideoServiceUpdate() {
+    // Update our recording state based on video service
+    if (_isRecording != _videoService.isRecording) {
+      _isRecording = _videoService.isRecording;
+      notifyListeners();
     }
   }
   
@@ -134,20 +155,28 @@ class RecorderProvider with ChangeNotifier {
     
     try {
       final videoPath = await _videoService.stopRecording();
+      _videoService.removeListener(_onVideoServiceUpdate);
       _isRecording = _videoService.isRecording;
       
       if (videoPath != null) {
-        // Add the new video recording to our list
-        final newRecording = Recording(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          path: videoPath,
-          name: 'Video ${DateFormat('hh:mm a').format(DateTime.now())}',
-          duration: 0.0, // We'll need to calculate this
-          date: DateTime.now(),
-        );
-        
-        _recordings.insert(0, newRecording);
-        await _saveRecordings();
+        // Verify the file was created and has content
+        final file = File(videoPath);
+        if (await file.exists()) {
+          final length = await file.length();
+          if (length > 0) {
+            // Add the new video recording to our list
+            final newRecording = Recording(
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+              path: videoPath,
+              name: 'Video ${DateFormat('hh:mm a').format(DateTime.now())}',
+              duration: 0.0, // We'll need to calculate this
+              date: DateTime.now(),
+            );
+            
+            _recordings.insert(0, newRecording);
+            await _saveRecordings();
+          }
+        }
       }
       
       notifyListeners();
@@ -163,18 +192,25 @@ class RecorderProvider with ChangeNotifier {
       final imagePath = await _videoService.takePicture();
       
       if (imagePath != null) {
-        // Add the new image to our list
-        final newRecording = Recording(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          path: imagePath,
-          name: 'Photo ${DateFormat('hh:mm a').format(DateTime.now())}',
-          duration: 0.0,
-          date: DateTime.now(),
-        );
-        
-        _recordings.insert(0, newRecording);
-        await _saveRecordings();
-        notifyListeners();
+        // Verify the file was created and has content
+        final file = File(imagePath);
+        if (await file.exists()) {
+          final length = await file.length();
+          if (length > 0) {
+            // Add the new image to our list
+            final newRecording = Recording(
+              id: DateTime.now().millisecondsSinceEpoch.toString(),
+              path: imagePath,
+              name: 'Photo ${DateFormat('hh:mm a').format(DateTime.now())}',
+              duration: 0.0,
+              date: DateTime.now(),
+            );
+            
+            _recordings.insert(0, newRecording);
+            await _saveRecordings();
+            notifyListeners();
+          }
+        }
       }
     } catch (e) {
       print('Error capturing image: $e');
@@ -310,6 +346,8 @@ class RecorderProvider with ChangeNotifier {
     _player.closePlayer();
     _playerSubscription?.cancel();
     _recorderSubscription?.cancel();
+    _durationTimer?.cancel();
+    _videoService.removeListener(_onVideoServiceUpdate);
     _videoService.dispose();
     super.dispose();
   }
