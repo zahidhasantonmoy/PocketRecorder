@@ -4,7 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'pattern_detector.dart';
 import 'settings_service.dart';
+import 'pattern_storage_service.dart';
 import '../models/pattern_setting.dart';
+import '../models/pattern_signature.dart';
 
 class BackgroundPatternDetectionService {
   static final BackgroundPatternDetectionService _instance = 
@@ -16,6 +18,7 @@ class BackgroundPatternDetectionService {
 
   PatternDetector? _patternDetector;
   List<PatternSetting> _patternSettings = [];
+  List<PatternSignature> _customPatterns = [];
   bool _isServiceRunning = false;
 
   Future<void> startBackgroundService() async {
@@ -23,6 +26,7 @@ class BackgroundPatternDetectionService {
     
     // Load pattern settings
     _patternSettings = await SettingsService().getPatternSettings();
+    _customPatterns = await PatternStorageService().getPatterns();
     
     // Initialize pattern detector
     _patternDetector = PatternDetector(
@@ -59,7 +63,30 @@ class BackgroundPatternDetectionService {
   }
 
   void _handlePatternDetected(int tapCount) {
-    // Find matching pattern setting
+    // Create a pattern signature from the detected taps
+    List<double> timestamps = [];
+    final now = DateTime.now().millisecondsSinceEpoch.toDouble();
+    // Create timestamps with 200ms intervals (arbitrary for demo)
+    for (int i = 0; i < tapCount; i++) {
+      timestamps.add(now - (tapCount - i - 1) * 200);
+    }
+    
+    final detectedPattern = PatternSignature(
+      id: 'detected_${DateTime.now().millisecondsSinceEpoch}',
+      name: 'Detected Pattern',
+      timestamps: timestamps,
+      createdAt: DateTime.now(),
+    );
+    
+    // First check custom patterns with 60% tolerance
+    for (final pattern in _customPatterns) {
+      if (pattern.matches(detectedPattern, tolerance: 0.6)) {
+        _executePatternFunction(pattern.assignedFunction);
+        return;
+      }
+    }
+    
+    // If no custom pattern matches, check default patterns
     final matchingPattern = _patternSettings.firstWhere(
       (pattern) => pattern.tapCount == tapCount,
       orElse: () => PatternSetting(
@@ -70,11 +97,11 @@ class BackgroundPatternDetectionService {
     );
     
     // Handle the detected pattern
-    _executePatternFunction(matchingPattern);
+    _executePatternFunction(matchingPattern.functionType);
   }
 
-  void _executePatternFunction(PatternSetting pattern) {
-    switch (pattern.functionType) {
+  void _executePatternFunction(String functionType) {
+    switch (functionType) {
       case 'audio':
         // Start audio recording
         _startAudioRecording();
