@@ -4,6 +4,7 @@ import '../recorder_provider.dart';
 import '../utils/formatting_utils.dart';
 import 'recordings_screen.dart';
 import 'settings_screen.dart';
+import 'pattern_settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -44,6 +45,17 @@ class _HomeScreenState extends State<HomeScreen>
         title: const Text('PocketRecorder'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.gesture),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const PatternSettingsScreen(),
+                ),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {
               Navigator.push(
@@ -70,6 +82,24 @@ class _HomeScreenState extends State<HomeScreen>
       body: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // App logo
+          const Icon(
+            Icons.security,
+            size: 60,
+            color: Colors.deepPurple,
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'PocketRecorder',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.deepPurple,
+            ),
+          ),
+          const SizedBox(height: 30),
+          
+          // Main recording button
           Center(
             child: GestureDetector(
               onTapDown: (_) {
@@ -138,8 +168,93 @@ class _HomeScreenState extends State<HomeScreen>
                 : 'Ready to record',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
+          
+          const SizedBox(height: 40),
+          
+          // Quick action buttons
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _QuickActionButton(
+                  icon: Icons.videocam,
+                  label: 'Video',
+                  onTap: () {
+                    // Start video recording
+                  },
+                ),
+                _QuickActionButton(
+                  icon: Icons.camera_alt,
+                  label: 'Photo',
+                  onTap: () {
+                    // Capture photo
+                  },
+                ),
+                _QuickActionButton(
+                  icon: Icons.emergency,
+                  label: 'SOS',
+                  onTap: () {
+                    // Send SOS alert
+                  },
+                ),
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: 30),
+          
+          // Status indicator
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.check_circle, color: Colors.green, size: 16),
+                SizedBox(width: 8),
+                Text('Pattern detection active'),
+              ],
+            ),
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _QuickActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _QuickActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        IconButton(
+          icon: Icon(icon, size: 30),
+          onPressed: onTap,
+          style: IconButton.styleFrom(
+            backgroundColor: Theme.of(context).primaryColor,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(label, style: const TextStyle(fontSize: 12)),
+      ],
     );
   }
 }
