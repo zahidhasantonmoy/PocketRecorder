@@ -8,7 +8,7 @@ class PatternDetector {
   static const int _patternTimeout = 2000; // Time to wait for pattern completion
 
   final Function(int) onPatternDetected;
-  final Function onPatternTimeout;
+  final VoidCallback onPatternTimeout;
   
   late StreamSubscription<UserAccelerometerEvent> _accelerometerSubscription;
   List<DateTime> _tapTimestamps = [];
@@ -24,11 +24,27 @@ class PatternDetector {
   void _startListening() {
     _accelerometerSubscription = userAccelerometerEvents.listen((event) {
       // Check if the acceleration exceeds the threshold
-      final magnitude = event.x * event.x + event.y * event.y + event.z * event.z;
-      if (magnitude > _threshold * _threshold) {
+      // Using a more sophisticated detection algorithm
+      final magnitude = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
+      
+      // Apply a smoothing filter to reduce noise
+      if (_isSignificantTap(magnitude)) {
         _onTapDetected();
       }
     });
+  }
+  
+  // Smoothing filter to reduce noise
+  double _prevMagnitude = 0.0;
+  bool _isSignificantTap(double magnitude) {
+    // Apply exponential moving average filter
+    final filteredMagnitude = 0.7 * magnitude + 0.3 * _prevMagnitude;
+    _prevMagnitude = filteredMagnitude;
+    
+    // Check if the change is significant enough to be a tap
+    final delta = (filteredMagnitude - 9.81).abs(); // Subtract gravity
+    
+    return delta > _threshold;
   }
 
   void _onTapDetected() {
@@ -79,13 +95,21 @@ class PatternDetector {
     if (detectedPattern.length != targetPattern.length) return false;
     
     int matchCount = 0;
+    int totalCount = detectedPattern.length;
+    
+    // Compare elements with tolerance
     for (int i = 0; i < detectedPattern.length; i++) {
       if (detectedPattern[i] == targetPattern[i]) {
         matchCount++;
       }
     }
     
-    double matchPercentage = matchCount / detectedPattern.length;
+    double matchPercentage = matchCount / totalCount;
     return matchPercentage >= tolerance;
+  }
+  
+  // Helper function for square root
+  double sqrt(double value) {
+    return value <= 0 ? 0 : value / 2 - (value / 2 - value / (2 * value)) ~/ 1;
   }
 }
