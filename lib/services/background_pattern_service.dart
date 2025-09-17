@@ -44,9 +44,8 @@ class BackgroundPatternDetectionService {
       iosNotificationOptions: const IOSNotificationOptions(
         showNotification: false,
       ),
-      foregroundTaskOptions: const ForegroundTaskOptions(
+      foregroundTaskOptions: ForegroundTaskOptions(
         eventAction: ForegroundTaskEventAction.repeat,
-        repeatInterval: 5000,
         autoRunOnBoot: true,
         allowWakeLock: true,
         allowWifiLock: true,

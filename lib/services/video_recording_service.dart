@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:intl/intf.dart';
+import 'package:intl/intl.dart';
 import 'package:cross_file/cross_file.dart';
 
 class VideoRecordingService with ChangeNotifier {
@@ -48,7 +48,8 @@ class VideoRecordingService with ChangeNotifier {
     try {
       // Get directory for saving videos
       final directory = await getApplicationDocumentsDirectory();
-      final fileName = 'video_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.mp4';
+      final formatter = DateFormat('yyyyMMdd_HHmmss');
+      final fileName = 'video_${formatter.format(DateTime.now())}.mp4';
       _currentVideoPath = '${directory.path}/$fileName';
       
       // Start recording
@@ -128,7 +129,8 @@ class VideoRecordingService with ChangeNotifier {
       
       // Save the picture
       final directory = await getApplicationDocumentsDirectory();
-      final fileName = 'image_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.jpg';
+      final formatter = DateFormat('yyyyMMdd_HHmmss');
+      final fileName = 'image_${formatter.format(DateTime.now())}.jpg';
       final imagePath = '${directory.path}/$fileName';
       
       await pictureFile.saveTo(imagePath);
