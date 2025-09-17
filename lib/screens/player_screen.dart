@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:cross_file/cross_file.dart';
 import '../recorder_provider.dart';
 import '../models/recording.dart';
 import '../utils/formatting_utils.dart';
@@ -21,6 +23,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.recording.name),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share),
+            onPressed: () => _shareRecording(context, widget.recording),
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -37,7 +45,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               ),
               child: Center(
                 child: Icon(
-                  Icons.audiotrack,
+                  _getFileIcon(widget.recording.path),
                   size: 100,
                   color: Theme.of(context).primaryColor,
                 ),
@@ -119,5 +127,45 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ),
       ),
     );
+  }
+  
+  IconData _getFileIcon(String filePath) {
+    final extension = filePath.split('.').last.toLowerCase();
+    switch (extension) {
+      case 'mp3':
+      case 'm4a':
+      case 'wav':
+        return Icons.audiotrack;
+      case 'mp4':
+      case 'mov':
+      case 'avi':
+        return Icons.videocam;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+        return Icons.photo;
+      default:
+        return Icons.insert_drive_file;
+    }
+  }
+  
+  void _shareRecording(BuildContext context, Recording recording) async {
+    try {
+      final file = XFile(recording.path);
+      await Share.shareXFiles(
+        [file],
+        subject: 'Recording from PocketRecorder',
+        text: 'Check out this recording I captured with PocketRecorder!',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error sharing recording: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

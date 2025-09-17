@@ -132,8 +132,24 @@ class RecordingListItem extends StatelessWidget {
     );
   }
 
-  void _shareRecording(BuildContext context, Recording recording) {
-    Share.shareXFiles([XFile(recording.path)]);
+  void _shareRecording(BuildContext context, Recording recording) async {
+    try {
+      final file = XFile(recording.path);
+      await Share.shareXFiles(
+        [file],
+        subject: 'Recording from PocketRecorder',
+        text: 'Check out this recording I captured with PocketRecorder!',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error sharing recording: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _showDeleteConfirmation(
