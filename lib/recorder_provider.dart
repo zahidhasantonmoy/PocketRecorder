@@ -76,7 +76,7 @@ class RecorderProvider with ChangeNotifier {
       // Listen to recorder updates
       _recorderSubscription?.cancel();
       _recorderSubscription = _recorder.onProgress?.listen((e) {
-        _recordedDuration = e.durationRecorded.inMilliseconds.toDouble() / 1000;
+        _recordedDuration = e.duration.inMilliseconds.toDouble() / 1000;
         notifyListeners();
       });
       
