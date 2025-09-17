@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../recorder_provider.dart';
+import 'developer_info_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -148,6 +149,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 // Handle theme change
               },
             ),
+          ),
+          const Divider(),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.0),
+            child: Text(
+              'About',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          ListTile(
+            title: const Text('Developer Info'),
+            subtitle: const Text('Zahid Hasan Tonmoy'),
+            leading: const Icon(Icons.info),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const DeveloperInfoScreen(),
+                ),
+              );
+            },
           ),
         ],
       ),
