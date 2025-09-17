@@ -104,18 +104,18 @@ class _HomeScreenState extends State<HomeScreen>
             child: GestureDetector(
               onTapDown: (_) {
                 _animationController.forward();
-                // Start recording when pressed
-                recorderProvider.startRecording();
+                // Toggle recording when pressed
+                if (recorderProvider.isRecording) {
+                  recorderProvider.stopRecording();
+                } else {
+                  recorderProvider.startRecording();
+                }
               },
               onTapUp: (_) {
                 _animationController.reverse();
-                // Stop recording when released
-                recorderProvider.stopRecording();
               },
               onTapCancel: () {
                 _animationController.reverse();
-                // Stop recording if cancelled
-                recorderProvider.stopRecording();
               },
               child: AnimatedBuilder(
                 animation: _scaleAnimation,
@@ -158,7 +158,7 @@ class _HomeScreenState extends State<HomeScreen>
           Text(
             recorderProvider.isRecording
                 ? 'Recording...'
-                : 'Tap and hold to record',
+                : 'Tap to start/stop recording',
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 10),
@@ -180,14 +180,21 @@ class _HomeScreenState extends State<HomeScreen>
                 _QuickActionButton(
                   icon: Icons.videocam,
                   label: 'Video',
+                  isRecording: recorderProvider.isRecording && 
+                               recorderProvider.videoService.isRecording,
                   onTap: () {
-                    // Start video recording
-                    recorderProvider.startVideoRecording();
+                    // Toggle video recording
+                    if (recorderProvider.isRecording) {
+                      recorderProvider.stopVideoRecording();
+                    } else {
+                      recorderProvider.startVideoRecording();
+                    }
                   },
                 ),
                 _QuickActionButton(
                   icon: Icons.camera_alt,
                   label: 'Photo',
+                  isRecording: false, // Photos are instant
                   onTap: () {
                     // Capture photo
                     recorderProvider.captureImage();
@@ -196,6 +203,7 @@ class _HomeScreenState extends State<HomeScreen>
                 _QuickActionButton(
                   icon: Icons.emergency,
                   label: 'SOS',
+                  isRecording: false,
                   onTap: () {
                     // Send SOS alert
                     _sendSOSAlert();
@@ -253,11 +261,13 @@ class _HomeScreenState extends State<HomeScreen>
 class _QuickActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
+  final bool isRecording;
   final VoidCallback onTap;
 
   const _QuickActionButton({
     required this.icon,
     required this.label,
+    required this.isRecording,
     required this.onTap,
   });
 
@@ -265,16 +275,30 @@ class _QuickActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        IconButton(
-          icon: Icon(icon, size: 30),
-          onPressed: onTap,
-          style: IconButton.styleFrom(
-            backgroundColor: Theme.of(context).primaryColor,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
+        Stack(
+          children: [
+            IconButton(
+              icon: Icon(icon, size: 30),
+              onPressed: onTap,
+              style: IconButton.styleFrom(
+                backgroundColor: isRecording ? Colors.red : Theme.of(context).primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+              ),
             ),
-          ),
+            if (isRecording)
+              const Positioned(
+                right: 0,
+                top: 0,
+                child: Icon(
+                  Icons.circle,
+                  color: Colors.red,
+                  size: 12,
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 8),
         Text(label, style: const TextStyle(fontSize: 12)),

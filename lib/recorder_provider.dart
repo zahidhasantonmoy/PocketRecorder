@@ -22,6 +22,7 @@ class RecorderProvider with ChangeNotifier {
   double _currentPlaybackDuration = 0.0;
   List<Recording> _recordings = [];
   StreamSubscription? _playerSubscription;
+  StreamSubscription? _recorderSubscription;
   
   // Getters
   bool get isRecording => _isRecording;
@@ -47,9 +48,13 @@ class RecorderProvider with ChangeNotifier {
   }
   
   Future<void> _requestPermissions() async {
-    await Permission.microphone.request();
-    await Permission.storage.request();
-    await Permission.camera.request();
+    // Request all necessary permissions
+    await [
+      Permission.microphone,
+      Permission.storage,
+      Permission.camera,
+      Permission.location,
+    ].request();
   }
   
   Future<void> startRecording() async {
@@ -67,17 +72,15 @@ class RecorderProvider with ChangeNotifier {
       
       _isRecording = true;
       _recordedDuration = 0.0;
-      notifyListeners();
       
-      // Update duration periodically
-      Timer.periodic(const Duration(milliseconds: 100), (timer) {
-        if (!_isRecording) {
-          timer.cancel();
-          return;
-        }
-        _recordedDuration += 0.1;
+      // Listen to recorder updates
+      _recorderSubscription?.cancel();
+      _recorderSubscription = _recorder.onProgress?.listen((e) {
+        _recordedDuration = e.durationRecorded.inMilliseconds.toDouble() / 1000;
         notifyListeners();
       });
+      
+      notifyListeners();
     } catch (e) {
       print('Error starting recording: $e');
     }
@@ -88,6 +91,7 @@ class RecorderProvider with ChangeNotifier {
     
     try {
       await _recorder.stopRecorder();
+      _recorderSubscription?.cancel();
       _isRecording = false;
       
       // Add the new recording to our list
@@ -108,48 +112,72 @@ class RecorderProvider with ChangeNotifier {
   }
   
   Future<void> startVideoRecording() async {
-    await _videoService.startRecording();
-    _isRecording = _videoService.isRecording;
-    notifyListeners();
+    if (_isRecording) return;
+    
+    try {
+      await _videoService.startRecording();
+      _isRecording = _videoService.isRecording;
+      
+      // Listen to video service updates
+      _videoService.addListener(() {
+        notifyListeners();
+      });
+      
+      notifyListeners();
+    } catch (e) {
+      print('Error starting video recording: $e');
+    }
   }
   
   Future<void> stopVideoRecording() async {
-    final videoPath = await _videoService.stopRecording();
-    _isRecording = _videoService.isRecording;
+    if (!_isRecording) return;
     
-    if (videoPath != null) {
-      // Add the new video recording to our list
-      final newRecording = Recording(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        path: videoPath,
-        name: 'Video ${DateFormat('hh:mm a').format(DateTime.now())}',
-        duration: 0.0, // We'll need to calculate this
-        date: DateTime.now(),
-      );
+    try {
+      final videoPath = await _videoService.stopRecording();
+      _isRecording = _videoService.isRecording;
       
-      _recordings.insert(0, newRecording);
-      await _saveRecordings();
+      if (videoPath != null) {
+        // Add the new video recording to our list
+        final newRecording = Recording(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          path: videoPath,
+          name: 'Video ${DateFormat('hh:mm a').format(DateTime.now())}',
+          duration: 0.0, // We'll need to calculate this
+          date: DateTime.now(),
+        );
+        
+        _recordings.insert(0, newRecording);
+        await _saveRecordings();
+      }
+      
+      notifyListeners();
+    } catch (e) {
+      print('Error stopping video recording: $e');
     }
-    
-    notifyListeners();
   }
   
   Future<void> captureImage() async {
-    final imagePath = await _videoService.takePicture();
+    if (_isRecording) return;
     
-    if (imagePath != null) {
-      // Add the new image to our list
-      final newRecording = Recording(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        path: imagePath,
-        name: 'Photo ${DateFormat('hh:mm a').format(DateTime.now())}',
-        duration: 0.0,
-        date: DateTime.now(),
-      );
+    try {
+      final imagePath = await _videoService.takePicture();
       
-      _recordings.insert(0, newRecording);
-      await _saveRecordings();
-      notifyListeners();
+      if (imagePath != null) {
+        // Add the new image to our list
+        final newRecording = Recording(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          path: imagePath,
+          name: 'Photo ${DateFormat('hh:mm a').format(DateTime.now())}',
+          duration: 0.0,
+          date: DateTime.now(),
+        );
+        
+        _recordings.insert(0, newRecording);
+        await _saveRecordings();
+        notifyListeners();
+      }
+    } catch (e) {
+      print('Error capturing image: $e');
     }
   }
   
@@ -281,6 +309,7 @@ class RecorderProvider with ChangeNotifier {
     _recorder.closeRecorder();
     _player.closePlayer();
     _playerSubscription?.cancel();
+    _recorderSubscription?.cancel();
     _videoService.dispose();
     super.dispose();
   }
