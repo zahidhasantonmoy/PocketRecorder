@@ -6,6 +6,7 @@ import 'screens/vault_screen.dart';
 import 'screens/pattern_settings_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/background_pattern_service.dart';
+import 'services/sos_service.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
 
@@ -16,8 +17,15 @@ void main() async {
   await BackgroundPatternDetectionService().startBackgroundService();
   
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => RecorderProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (context) => RecorderProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => SOSService(),
+        ),
+      ],
       child: const MyApp(),
     ),
   );
