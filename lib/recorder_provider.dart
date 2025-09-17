@@ -118,9 +118,8 @@ class RecorderProvider with ChangeNotifier {
       _currentPlayingPath = path;
       _isPlaying = true;
       
-      // Get the duration of the audio file
-      final duration = await _player.getDuration(path);
-      _currentPlaybackDuration = duration?.inMilliseconds.toDouble() ?? 0.0;
+      // For now, we'll set a default duration or calculate it another way
+      _currentPlaybackDuration = 0.0; // We'll update this as playback progresses
       
       await _player.startPlayer(
         fromURI: path,
@@ -130,6 +129,10 @@ class RecorderProvider with ChangeNotifier {
       // Listen to player position updates
       _playerSubscription = _player.onProgress?.listen((position) {
         _currentPlaybackPosition = position.position.inMilliseconds.toDouble() / 1000;
+        // Update duration as we play
+        if (_currentPlaybackPosition > _currentPlaybackDuration) {
+          _currentPlaybackDuration = _currentPlaybackPosition;
+        }
         notifyListeners();
       });
       
