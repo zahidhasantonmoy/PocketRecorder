@@ -48,18 +48,56 @@ class RecorderProvider with ChangeNotifier {
     await _videoService.initializeCamera();
   }
   
-  Future<void> _requestPermissions() async {
-    // Request all necessary permissions
-    await [
-      Permission.microphone,
-      Permission.storage,
-      Permission.camera,
-      Permission.location,
-    ].request();
+  // Check and request permissions as needed
+  Future<bool> checkAndRequestPermissions(String functionType) async {
+    List<Permission> permissions = [];
+    
+    switch (functionType) {
+      case 'audio':
+        permissions = [Permission.microphone, Permission.storage];
+        break;
+      case 'video':
+        permissions = [Permission.camera, Permission.microphone, Permission.storage];
+        break;
+      case 'image':
+        permissions = [Permission.camera, Permission.storage];
+        break;
+      default:
+        permissions = [Permission.microphone, Permission.camera, Permission.storage];
+    }
+    
+    // Check current permissions
+    bool allGranted = true;
+    for (var permission in permissions) {
+      var status = await permission.status;
+      if (status != PermissionStatus.granted) {
+        allGranted = false;
+        break;
+      }
+    }
+    
+    // If not all permissions are granted, request them
+    if (!allGranted) {
+      final statuses = await permissions.request();
+      for (var permission in permissions) {
+        if (statuses[permission] != PermissionStatus.granted) {
+          return false;
+        }
+      }
+    }
+    
+    return true;
   }
   
   Future<void> startRecording() async {
     if (_isRecording) return;
+    
+    // Check permissions
+    final hasPermissions = await checkAndRequestPermissions('audio');
+    if (!hasPermissions) {
+      print('Audio recording permissions not granted');
+      return;
+    }
     
     try {
       final directory = await getApplicationDocumentsDirectory();
@@ -129,6 +167,13 @@ class RecorderProvider with ChangeNotifier {
   Future<void> startVideoRecording() async {
     if (_isRecording) return;
     
+    // Check permissions
+    final hasPermissions = await checkAndRequestPermissions('video');
+    if (!hasPermissions) {
+      print('Video recording permissions not granted');
+      return;
+    }
+    
     try {
       await _videoService.startRecording();
       _isRecording = _videoService.isRecording;
@@ -187,6 +232,13 @@ class RecorderProvider with ChangeNotifier {
   
   Future<void> captureImage() async {
     if (_isRecording) return;
+    
+    // Check permissions
+    final hasPermissions = await checkAndRequestPermissions('image');
+    if (!hasPermissions) {
+      print('Image capture permissions not granted');
+      return;
+    }
     
     try {
       final imagePath = await _videoService.takePicture();
