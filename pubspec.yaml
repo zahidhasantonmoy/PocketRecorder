@@ -55,6 +55,9 @@ dependencies:
   
   # For animations
   lottie: ^3.2.0
+  
+  # For background service
+  flutter_foreground_task: ^8.0.0
 
 dev_dependencies:
   flutter_test:
