@@ -1,11 +1,15 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:sensors_plus/sensors_plus.dart';
+import 'package:pocket_recorder/services/media_capture_service.dart';
 
 class GestureDetectionService {
   static final GestureDetectionService _instance = GestureDetectionService._internal();
   factory GestureDetectionService() => _instance;
   GestureDetectionService._internal();
+
+  // Media capture service
+  final MediaCaptureService _mediaService = MediaCaptureService();
 
   // Streams for accelerometer and gyroscope data
   StreamSubscription<UserAccelerometerEvent>? _accelerometerSubscription;
@@ -82,18 +86,18 @@ class GestureDetectionService {
         
         // Check for double tap
         if (_tapCount == 2) {
-          onDoubleTap?.call();
+          _handleDoubleTap();
           _resetTapDetection();
         }
         // Check for triple tap
         else if (_tapCount == 3) {
-          onTripleTap?.call();
+          _handleTripleTap();
           _resetTapDetection();
         }
       } else if (timeDiff <= _tripleTapWindow && _tapCount == 2) {
         // This is the third tap within the extended window
         _tapCount++;
-        onTripleTap?.call();
+        _handleTripleTap();
         _resetTapDetection();
       } else {
         // Reset for a new sequence
@@ -101,6 +105,33 @@ class GestureDetectionService {
         _tapCount = 1;
       }
     }
+  }
+
+  // Handle double tap gesture
+  void _handleDoubleTap() {
+    // Capture photo by default
+    _mediaService.capturePhoto();
+    
+    // Call custom callback if set
+    onDoubleTap?.call();
+  }
+
+  // Handle triple tap gesture
+  void _handleTripleTap() {
+    // Start video recording by default
+    _mediaService.startVideoRecording();
+    
+    // Call custom callback if set
+    onTripleTap?.call();
+  }
+
+  // Handle long slap gesture
+  void _handleLongSlap() {
+    // Start audio recording by default
+    _mediaService.startAudioRecording();
+    
+    // Call custom callback if set
+    onLongSlap?.call();
   }
 
   // Reset tap detection variables
@@ -112,5 +143,6 @@ class GestureDetectionService {
   // Dispose of the service
   void dispose() {
     stopListening();
+    _mediaService.dispose();
   }
 }
