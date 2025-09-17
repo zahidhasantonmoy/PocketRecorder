@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import '../recorder_provider.dart';
 import '../recording.dart';
 import '../screens/player_screen.dart';
+import '../utils/formatting_utils.dart';
 
 class RecordingListItem extends StatelessWidget {
   final Recording recording;
@@ -25,9 +26,9 @@ class RecordingListItem extends StatelessWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(_formatDate(recording.date)),
+            Text(FormattingUtils.formatDate(recording.date)),
             const SizedBox(height: 4),
-            Text(_formatDuration(recording.duration)),
+            Text(FormattingUtils.formatDuration(recording.duration)),
           ],
         ),
         trailing: PopupMenuButton<String>(
@@ -93,35 +94,6 @@ class RecordingListItem extends StatelessWidget {
         },
       ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-
-    if (difference.inDays == 0) {
-      return 'Today';
-    } else if (difference.inDays == 1) {
-      return 'Yesterday';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays} days ago';
-    } else {
-      return '${date.day}/${date.month}/${date.year}';
-    }
-  }
-
-  String _formatDuration(double seconds) {
-    final duration = Duration(milliseconds: (seconds * 1000).toInt());
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final hours = duration.inHours;
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
-    final secs = twoDigits(duration.inSeconds.remainder(60));
-
-    if (hours > 0) {
-      return '$hours:$minutes:$secs';
-    } else {
-      return '$minutes:$secs';
-    }
   }
 
   void _showRenameDialog(
