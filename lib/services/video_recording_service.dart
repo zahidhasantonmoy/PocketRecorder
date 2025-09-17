@@ -53,7 +53,8 @@ class VideoRecordingService with ChangeNotifier {
       _currentVideoPath = '${directory.path}/$fileName';
       
       // Start recording
-      _videoFile = await _cameraController!.startVideoRecording();
+      await _cameraController!.startVideoRecording();
+      _videoFile = XFile(_currentVideoPath); // Create XFile from path
       _isRecording = true;
       notifyListeners();
     } catch (e) {

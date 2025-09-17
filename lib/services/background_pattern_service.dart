@@ -33,7 +33,7 @@ class BackgroundPatternDetectionService {
     _isServiceRunning = true;
     
     // Start foreground service to keep running in background
-    await FlutterForegroundTask.init(
+    FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'pattern_detection_channel',
         channelName: 'Pattern Detection Service',
@@ -44,15 +44,14 @@ class BackgroundPatternDetectionService {
       iosNotificationOptions: const IOSNotificationOptions(
         showNotification: false,
       ),
-      foregroundTaskOptions: ForegroundTaskOptions(
-        eventAction: ForegroundTaskEventAction.repeat,
+      foregroundTaskOptions: const ForegroundTaskOptions(
         autoRunOnBoot: true,
         allowWakeLock: true,
         allowWifiLock: true,
       ),
     );
     
-    await FlutterForegroundTask.startService(
+    FlutterForegroundTask.startService(
       notificationTitle: 'PocketRecorder',
       notificationText: 'Listening for tap patterns...',
     );
