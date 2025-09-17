@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'recorder_provider.dart';
 import 'screens/home_screen.dart';
-import 'widgets/recording_list_item.dart';
+
+final navigatorKey = GlobalKey<NavigatorState>();
 
 void main() {
   runApp(
