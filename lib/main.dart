@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pocket_recorder/screens/home_screen.dart';
 import 'package:pocket_recorder/screens/settings_screen.dart';
 import 'package:pocket_recorder/screens/media_gallery_screen.dart';
+import 'package:pocket_recorder/screens/developer_info_screen.dart';
 
 void main() {
   runApp(const PocketRecorderApp());
@@ -66,6 +67,18 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const DeveloperInfoScreen(),
+            ),
+          );
+        },
+        child: const Icon(Icons.code),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
     );
   }
 }
