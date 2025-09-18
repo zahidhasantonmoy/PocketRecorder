@@ -13,17 +13,13 @@ class PatternTrainingScreen extends StatefulWidget {
 }
 
 class _PatternTrainingScreenState extends State<PatternTrainingScreen> {
-  List<SensorReading> _sensorReadings = [];
-  List<TapEvent> _detectedTaps = [];
+  List<_SensorReading> _sensorReadings = [];
+  List<_TapEvent> _detectedTaps = [];
   StreamSubscription<UserAccelerometerEvent>? _accelerometerSubscription;
-  StreamSubscription<GyroscopeEvent>? _gyroscopeSubscription;
   bool _isRecording = false;
   String _patternName = '';
   double _detectionThreshold = 6.0;
   DateTime? _recordingStartTime;
-  DateTime? _recordingEndTime;
-  Timer? _autoStopTimer;
-  String _selectedFunction = 'custom';
 
   final TextEditingController _nameController = TextEditingController();
 
@@ -45,79 +41,44 @@ class _PatternTrainingScreenState extends State<PatternTrainingScreen> {
     });
     
     // Start collecting sensor data
-    _startSensorCollection();
-    
-    // Set auto-stop timer (10 seconds max)
-    _autoStopTimer = Timer(const Duration(seconds: 10), () {
-      if (_isRecording) {
-        _stopRecording();
-      }
-    });
-  }
-  
-  void _startSensorCollection() {
-    // Listen to accelerometer events
     _accelerometerSubscription = userAccelerometerEvents.listen((event) {
       final magnitude = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
-      final reading = SensorReading(
+      final reading = _SensorReading(
         timestamp: DateTime.now(),
         x: event.x,
         y: event.y,
         z: event.z,
         magnitude: magnitude,
-        sensorType: 'Accelerometer',
       );
       
-      _processSensorReading(reading);
-    });
-    
-    // Listen to gyroscope events
-    _gyroscopeSubscription = gyroscopeEvents.listen((event) {
-      final magnitude = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
-      final reading = SensorReading(
-        timestamp: DateTime.now(),
-        x: event.x,
-        y: event.y,
-        z: event.z,
-        magnitude: magnitude,
-        sensorType: 'Gyroscope',
-      );
-      
-      _processSensorReading(reading);
-    });
-  }
-  
-  void _processSensorReading(SensorReading reading) {
-    setState(() {
-      _sensorReadings.add(reading);
-      
-      // Check for tap detection
-      if (reading.magnitude > _detectionThreshold && reading.sensorType == 'Accelerometer') {
-        // Check if this is a new tap (not part of previous tap)
-        if (_detectedTaps.isEmpty || 
-            DateTime.now().difference(_detectedTaps.last.timestamp).inMilliseconds > 200) {
-          _detectedTaps.add(TapEvent(
-            timestamp: DateTime.now(),
-            magnitude: reading.magnitude,
-            x: reading.x,
-            y: reading.y,
-            z: reading.z,
-          ));
+      setState(() {
+        _sensorReadings.add(reading);
+        
+        // Check for tap detection
+        if (magnitude > _detectionThreshold) {
+          // Check if this is a new tap (not part of previous tap)
+          if (_detectedTaps.isEmpty || 
+              DateTime.now().difference(_detectedTaps.last.timestamp).inMilliseconds > 200) {
+            _detectedTaps.add(_TapEvent(
+              timestamp: DateTime.now(),
+              magnitude: magnitude,
+              x: event.x,
+              y: event.y,
+              z: event.z,
+            ));
+          }
         }
-      }
+      });
     });
   }
 
   void _stopRecording() {
     if (!_isRecording) return;
     
-    _autoStopTimer?.cancel();
     _accelerometerSubscription?.cancel();
-    _gyroscopeSubscription?.cancel();
     
     setState(() {
       _isRecording = false;
-      _recordingEndTime = DateTime.now();
     });
   }
 
@@ -153,7 +114,7 @@ class _PatternTrainingScreenState extends State<PatternTrainingScreen> {
       name: _patternName,
       timestamps: timestamps,
       createdAt: DateTime.now(),
-      assignedFunction: _selectedFunction,
+      assignedFunction: 'custom',
     );
     
     // Save to storage
@@ -195,96 +156,29 @@ class _PatternTrainingScreenState extends State<PatternTrainingScreen> {
                 },
               ),
               const SizedBox(height: 20),
-              
-              // Function assignment
-              const Text(
-                'Assign to function:',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              DropdownButtonFormField<String>(
-                value: _selectedFunction,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                ),
-                items: const [
-                  DropdownMenuItem(
-                    value: 'audio',
-                    child: Text('Audio Recording'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'video',
-                    child: Text('Video Recording'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'image',
-                    child: Text('Image Capture'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'sos',
-                    child: Text('SOS Alert'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'custom',
-                    child: Text('Custom (No assigned function)'),
-                  ),
-                ],
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() {
-                      _selectedFunction = value;
-                    });
-                  }
-                },
-              ),
-              const SizedBox(height: 20),
             ],
             
-            // Recording controls
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (_isRecording) ...[
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.red.withOpacity(0.2),
-                      border: Border.all(color: Colors.red, width: 3),
-                    ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.stop,
-                        color: Colors.red,
-                        size: 40,
-                      ),
-                    ),
+            // Recording indicator
+            Center(
+              child: Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _isRecording ? Colors.red.withOpacity(0.2) : Colors.grey.withOpacity(0.2),
+                  border: Border.all(
+                    color: _isRecording ? Colors.red : Colors.grey,
+                    width: 3,
                   ),
-                ] else ...[
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Theme.of(context).primaryColor.withOpacity(0.2),
-                      border: Border.all(color: Theme.of(context).primaryColor, width: 3),
-                    ),
-                    child: Center(
-                      child: Icon(
-                        _detectedTaps.isEmpty 
-                            ? Icons.fiber_manual_record
-                            : Icons.replay,
-                        color: Theme.of(context).primaryColor,
-                        size: 40,
-                      ),
-                    ),
+                ),
+                child: Center(
+                  child: Icon(
+                    _isRecording ? Icons.stop : Icons.fiber_manual_record,
+                    size: 50,
+                    color: _isRecording ? Colors.red : Colors.grey,
                   ),
-                ],
-              ],
+                ),
+              ),
             ),
             
             const SizedBox(height: 20),
@@ -355,7 +249,7 @@ class _PatternTrainingScreenState extends State<PatternTrainingScreen> {
                   child: const Text('Clear'),
                 ),
               ],
-            ],
+            ),
             
             const SizedBox(height: 20),
             
@@ -378,7 +272,6 @@ class _PatternTrainingScreenState extends State<PatternTrainingScreen> {
                       Text('Total readings: ${_sensorReadings.length}'),
                       Text('Detected taps: ${_detectedTaps.length}'),
                       Text('Highest magnitude: ${_getHighestMagnitude().toStringAsFixed(2)}'),
-                      Text('Recording duration: ${_getRecordingDuration()}'),
                       const SizedBox(height: 10),
                       Row(
                         children: [
@@ -452,10 +345,8 @@ class _PatternTrainingScreenState extends State<PatternTrainingScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-            ],
-            
-            // Detailed tap data
-            if (_detectedTaps.isNotEmpty) ...[
+              
+              // Detailed tap data
               const Text(
                 'Tap Details',
                 style: TextStyle(
@@ -564,41 +455,32 @@ class _PatternTrainingScreenState extends State<PatternTrainingScreen> {
         .map((r) => r.magnitude)
         .reduce((a, b) => a > b ? a : b);
   }
-  
-  String _getRecordingDuration() {
-    if (_recordingStartTime == null) return '0s';
-    final endTime = _recordingEndTime ?? DateTime.now();
-    final duration = endTime.difference(_recordingStartTime!);
-    return '${duration.inSeconds}.${(duration.inMilliseconds % 1000) ~/ 100}s';
-  }
 }
 
-class SensorReading {
+class _SensorReading {
   final DateTime timestamp;
   final double x;
   final double y;
   final double z;
   final double magnitude;
-  final String sensorType;
 
-  SensorReading({
+  _SensorReading({
     required this.timestamp,
     required this.x,
     required this.y,
     required this.z,
     required this.magnitude,
-    required this.sensorType,
   });
 }
 
-class TapEvent {
+class _TapEvent {
   final DateTime timestamp;
   final double x;
   final double y;
   final double z;
   final double magnitude;
 
-  TapEvent({
+  _TapEvent({
     required this.timestamp,
     required this.x,
     required this.y,
