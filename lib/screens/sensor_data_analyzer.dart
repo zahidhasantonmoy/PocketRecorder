@@ -11,13 +11,16 @@ class SensorDataAnalyzer extends StatefulWidget {
 }
 
 class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
-  List<SensorReading> _accelerometerReadings = [];
-  List<SensorReading> _gyroscopeReadings = [];
+  List<SensorReading> _allReadings = []; // Store all readings
+  List<SensorReading> _topReadings = []; // Top 50 readings
+  List<SensorReading> _currentReadings = []; // Last 50 readings for display
   StreamSubscription<UserAccelerometerEvent>? _accelerometerSubscription;
   StreamSubscription<GyroscopeEvent>? _gyroscopeSubscription;
   bool _isListening = false;
-  int _maxRecords = 50;
+  int _maxStoredReadings = 1000; // Store up to 1000 readings in memory
+  int _displayReadings = 50; // Display top 50
   double _tapThreshold = 15.0;
+  double _highestMagnitude = 0.0;
 
   @override
   void initState() {
@@ -45,14 +48,10 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
         y: event.y,
         z: event.z,
         magnitude: magnitude,
+        sensorType: 'Accelerometer',
       );
       
-      setState(() {
-        _accelerometerReadings.insert(0, reading);
-        if (_accelerometerReadings.length > _maxRecords) {
-          _accelerometerReadings.removeLast();
-        }
-      });
+      _addReading(reading);
     });
     
     // Listen to gyroscope events
@@ -64,15 +63,45 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
         y: event.y,
         z: event.z,
         magnitude: magnitude,
+        sensorType: 'Gyroscope',
       );
       
-      setState(() {
-        _gyroscopeReadings.insert(0, reading);
-        if (_gyroscopeReadings.length > _maxRecords) {
-          _gyroscopeReadings.removeLast();
-        }
-      });
+      _addReading(reading);
     });
+  }
+  
+  void _addReading(SensorReading reading) {
+    setState(() {
+      // Add to all readings
+      _allReadings.add(reading);
+      
+      // Update highest magnitude
+      if (reading.magnitude > _highestMagnitude) {
+        _highestMagnitude = reading.magnitude;
+      }
+      
+      // Keep only the latest readings within our storage limit
+      if (_allReadings.length > _maxStoredReadings) {
+        _allReadings.removeAt(0);
+      }
+      
+      // Update current readings for display (last 50)
+      _currentReadings.insert(0, reading);
+      if (_currentReadings.length > _displayReadings) {
+        _currentReadings.removeLast();
+      }
+      
+      // Update top readings
+      _updateTopReadings();
+    });
+  }
+  
+  void _updateTopReadings() {
+    // Sort all readings by magnitude (descending) and take top 50
+    final sortedReadings = List<SensorReading>.from(_allReadings)
+      ..sort((a, b) => b.magnitude.compareTo(a.magnitude));
+    
+    _topReadings = sortedReadings.take(_displayReadings).toList();
   }
 
   void _stopListening() {
@@ -83,8 +112,10 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
 
   void _clearReadings() {
     setState(() {
-      _accelerometerReadings.clear();
-      _gyroscopeReadings.clear();
+      _allReadings.clear();
+      _topReadings.clear();
+      _currentReadings.clear();
+      _highestMagnitude = 0.0;
     });
   }
 
@@ -105,7 +136,7 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Threshold selector
+            // Statistics panel
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -113,12 +144,17 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Detection Settings',
+                      'Statistics',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    const SizedBox(height: 10),
+                    Text('Total readings: ${_allReadings.length}'),
+                    Text('Highest magnitude: ${_highestMagnitude.toStringAsFixed(2)}'),
+                    Text('Current threshold: ${_tapThreshold.toStringAsFixed(2)}'),
+                    Text('Readings above threshold: ${_allReadings.where((r) => r.magnitude > _tapThreshold).length}'),
                     const SizedBox(height: 10),
                     Row(
                       children: [
@@ -127,9 +163,9 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
                         Expanded(
                           child: Slider(
                             value: _tapThreshold,
-                            min: 5.0,
+                            min: 1.0,
                             max: 50.0,
-                            divisions: 45,
+                            divisions: 49,
                             label: _tapThreshold.round().toString(),
                             onChanged: (value) {
                               setState(() {
@@ -141,14 +177,6 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
                         Text('${_tapThreshold.round()}'),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Current readings: ${_accelerometerReadings.length} accelerometer, ${_gyroscopeReadings.length} gyroscope',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -156,52 +184,34 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
             
             const SizedBox(height: 20),
             
-            // Detected taps indicator
-            Card(
-              color: Colors.deepPurple.withOpacity(0.1),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Detected Taps',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    _buildTapIndicators(),
-                  ],
-                ),
-              ),
-            ),
-            
-            const SizedBox(height: 20),
-            
-            // Tabs for accelerometer and gyroscope data
+            // Tabs for different views
             Expanded(
               child: DefaultTabController(
-                length: 2,
+                length: 3,
                 child: Column(
                   children: [
                     const TabBar(
                       tabs: [
-                        Tab(text: 'Accelerometer'),
-                        Tab(text: 'Gyroscope'),
+                        Tab(text: 'Top 50 Readings'),
+                        Tab(text: 'Recent Readings'),
+                        Tab(text: 'All Readings'),
                       ],
                     ),
                     const SizedBox(height: 10),
                     Expanded(
                       child: TabBarView(
                         children: [
-                          _AccelerometerTab(
-                            readings: _accelerometerReadings,
+                          _TopReadingsTab(
+                            readings: _topReadings,
                             threshold: _tapThreshold,
                           ),
-                          _GyroscopeTab(
-                            readings: _gyroscopeReadings,
+                          _CurrentReadingsTab(
+                            readings: _currentReadings,
+                            threshold: _tapThreshold,
+                          ),
+                          _AllReadingsTab(
+                            readings: _allReadings,
+                            threshold: _tapThreshold,
                           ),
                         ],
                       ),
@@ -222,10 +232,7 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
                   child: const Text('Clear Data'),
                 ),
                 ElevatedButton(
-                  onPressed: () {
-                    // Save data to file or share
-                    _exportData();
-                  },
+                  onPressed: _exportData,
                   child: const Text('Export Data'),
                 ),
               ],
@@ -233,49 +240,6 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
           ],
         ),
       ),
-    );
-  }
-  
-  Widget _buildTapIndicators() {
-    // Count readings above threshold
-    int tapCount = _accelerometerReadings
-        .where((reading) => reading.magnitude > _tapThreshold)
-        .length;
-    
-    // Get highest magnitude reading
-    double maxMagnitude = 0.0;
-    if (_accelerometerReadings.isNotEmpty) {
-      maxMagnitude = _accelerometerReadings
-          .map((r) => r.magnitude)
-          .reduce((a, b) => a > b ? a : b);
-    }
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Readings above threshold: $tapCount'),
-        Text('Highest magnitude detected: ${maxMagnitude.toStringAsFixed(2)}'),
-        const SizedBox(height: 10),
-        if (tapCount > 0)
-          Container(
-            height: 20,
-            decoration: BoxDecoration(
-              color: Colors.red.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: (tapCount / _maxRecords * 100).clamp(0, 100),
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
     );
   }
   
@@ -289,11 +253,11 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
   }
 }
 
-class _AccelerometerTab extends StatelessWidget {
+class _TopReadingsTab extends StatelessWidget {
   final List<SensorReading> readings;
   final double threshold;
 
-  const _AccelerometerTab({
+  const _TopReadingsTab({
     required this.readings,
     required this.threshold,
   });
@@ -302,7 +266,7 @@ class _AccelerometerTab extends StatelessWidget {
   Widget build(BuildContext context) {
     if (readings.isEmpty) {
       return const Center(
-        child: Text('No accelerometer data yet. Tap the back of your phone to generate readings.'),
+        child: Text('No readings yet. Move or tap your phone to generate data.'),
       );
     }
 
@@ -324,18 +288,19 @@ class _AccelerometerTab extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '${reading.timestamp.hour}:${reading.timestamp.minute}:${reading.timestamp.second}.${reading.timestamp.millisecond}',
+                      '#${index + 1} - ${reading.sensorType}',
                       style: const TextStyle(
                         fontSize: 12,
                         color: Colors.grey,
                       ),
                     ),
-                    if (isAboveThreshold)
-                      const Icon(
-                        Icons.touch_app,
-                        color: Colors.red,
-                        size: 16,
+                    Text(
+                      '${reading.timestamp.hour}:${reading.timestamp.minute}:${reading.timestamp.second}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
                       ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 5),
@@ -373,11 +338,11 @@ class _AccelerometerTab extends StatelessWidget {
                     ),
                     if (isAboveThreshold) ...[
                       const SizedBox(width: 10),
-                      const Text('(TAP DETECTED)', style: TextStyle(color: Colors.red)),
+                      const Text('(ABOVE THRESHOLD)', style: TextStyle(color: Colors.red)),
                     ],
                   ],
                 ),
-                // Progress bar showing magnitude relative to threshold
+                // Progress bar showing magnitude relative to max
                 const SizedBox(height: 5),
                 LinearProgressIndicator(
                   value: (reading.magnitude / 50.0).clamp(0.0, 1.0),
@@ -395,16 +360,20 @@ class _AccelerometerTab extends StatelessWidget {
   }
 }
 
-class _GyroscopeTab extends StatelessWidget {
+class _CurrentReadingsTab extends StatelessWidget {
   final List<SensorReading> readings;
+  final double threshold;
 
-  const _GyroscopeTab({required this.readings});
+  const _CurrentReadingsTab({
+    required this.readings,
+    required this.threshold,
+  });
 
   @override
   Widget build(BuildContext context) {
     if (readings.isEmpty) {
       return const Center(
-        child: Text('No gyroscope data yet. Rotate your phone to generate readings.'),
+        child: Text('No recent readings yet. Move or tap your phone to generate data.'),
       );
     }
 
@@ -412,20 +381,34 @@ class _GyroscopeTab extends StatelessWidget {
       itemCount: readings.length,
       itemBuilder: (context, index) {
         final reading = readings[index];
+        final isAboveThreshold = reading.magnitude > threshold;
         
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 4),
+          color: isAboveThreshold ? Colors.red.withOpacity(0.2) : null,
           child: Padding(
             padding: const EdgeInsets.all(12.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${reading.timestamp.hour}:${reading.timestamp.minute}:${reading.timestamp.second}.${reading.timestamp.millisecond}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${reading.sensorType}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    Text(
+                      '${reading.timestamp.hour}:${reading.timestamp.minute}:${reading.timestamp.second}.${reading.timestamp.millisecond.toString().substring(0, 2)}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 5),
                 Text.rich(
@@ -455,9 +438,84 @@ class _GyroscopeTab extends StatelessWidget {
                     const Text('Magnitude: '),
                     Text(
                       reading.magnitude.toStringAsFixed(2),
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: isAboveThreshold ? Colors.red : null,
+                      ),
                     ),
+                    if (isAboveThreshold) ...[
+                      const SizedBox(width: 10),
+                      const Text('(ABOVE THRESHOLD)', style: TextStyle(color: Colors.red)),
+                    ],
                   ],
+                ),
+                // Progress bar showing magnitude relative to max
+                const SizedBox(height: 5),
+                LinearProgressIndicator(
+                  value: (reading.magnitude / 50.0).clamp(0.0, 1.0),
+                  backgroundColor: Colors.grey[300],
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    isAboveThreshold ? Colors.red : Colors.blue,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AllReadingsTab extends StatelessWidget {
+  final List<SensorReading> readings;
+  final double threshold;
+
+  const _AllReadingsTab({
+    required this.readings,
+    required this.threshold,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (readings.isEmpty) {
+      return const Center(
+        child: Text('No readings yet. Move or tap your phone to generate data.'),
+      );
+    }
+
+    // Show last 100 readings
+    final displayReadings = readings.length > 100 ? readings.sublist(readings.length - 100) : readings;
+
+    return ListView.builder(
+      itemCount: displayReadings.length,
+      itemBuilder: (context, index) {
+        final reading = displayReadings[index];
+        final isAboveThreshold = reading.magnitude > threshold;
+        
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 2),
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${reading.timestamp.hour}:${reading.timestamp.minute}:${reading.timestamp.second}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+                Text(
+                  '${reading.sensorType.substring(0, 1)}: ',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  reading.magnitude.toStringAsFixed(1),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: isAboveThreshold ? Colors.red : null,
+                  ),
                 ),
               ],
             ),
@@ -474,6 +532,7 @@ class SensorReading {
   final double y;
   final double z;
   final double magnitude;
+  final String sensorType;
 
   SensorReading({
     required this.timestamp,
@@ -481,5 +540,6 @@ class SensorReading {
     required this.y,
     required this.z,
     required this.magnitude,
+    required this.sensorType,
   });
 }
