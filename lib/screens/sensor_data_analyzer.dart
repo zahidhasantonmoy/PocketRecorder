@@ -11,8 +11,8 @@ class SensorDataAnalyzer extends StatefulWidget {
 }
 
 class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
-  List<SensorReading> _accelerometerReadings = [];
-  List<SensorReading> _gyroscopeReadings = [];
+  List<SensorDataPoint> _accelerometerReadings = [];
+  List<SensorDataPoint> _gyroscopeReadings = [];
   StreamSubscription<UserAccelerometerEvent>? _accelerometerSubscription;
   StreamSubscription<GyroscopeEvent>? _gyroscopeSubscription;
   bool _isRecording = false;
@@ -44,42 +44,152 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
     // Listen to accelerometer events
     _accelerometerSubscription = userAccelerometerEvents.listen((event) {
       final magnitude = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
-      final reading = SensorReading(
+      final reading = SensorDataPoint(
         timestamp: DateTime.now(),
         x: event.x,
         y: event.y,
         z: event.z,
         magnitude: magnitude,
+        sensorType: 'Accelerometer',
       );
       
       setState(() {
         _accelerometerReadings.add(reading);
-        // Keep only the last 100 readings
-        if (_accelerometerReadings.length > 100) {
-          _accelerometerReadings.removeAt(0);
-        }
+        // Keep only recent data (last 100 readings)
+        _maintainDataWindowSize();
+        
+        // Detect taps
+        _detectTaps();
       });
     });
     
     // Listen to gyroscope events
     _gyroscopeSubscription = gyroscopeEvents.listen((event) {
       final magnitude = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
-      final reading = SensorReading(
+      final reading = SensorDataPoint(
         timestamp: DateTime.now(),
         x: event.x,
         y: event.y,
         z: event.z,
         magnitude: magnitude,
+        sensorType: 'Gyroscope',
       );
       
       setState(() {
         _gyroscopeReadings.add(reading);
-        // Keep only the last 100 readings
-        if (_gyroscopeReadings.length > 100) {
-          _gyroscopeReadings.removeAt(0);
-        }
+        // Keep only recent data
+        _maintainDataWindowSize();
       });
     });
+  }
+  
+  void _maintainDataWindowSize() {
+    final cutoffTime = DateTime.now().subtract(Duration(seconds: 10));
+    
+    _accelerometerReadings.removeWhere((point) => point.timestamp.isBefore(cutoffTime));
+    _gyroscopeReadings.removeWhere((point) => point.timestamp.isBefore(cutoffTime));
+  }
+  
+  void _detectTaps() {
+    if (_accelerometerReadings.length < 3) return;
+    
+    // Look for peaks in the recent data
+    final recentData = _accelerometerReadings.length > 10 
+        ? _accelerometerReadings.sublist(_accelerometerReadings.length - 10)
+        : _accelerometerReadings;
+    
+    // Simple peak detection
+    for (int i = 1; i < recentData.length - 1; i++) {
+      final current = recentData[i];
+      final prev = recentData[i - 1];
+      final next = recentData[i + 1];
+      
+      // Check if this is a peak
+      if (current.magnitude > _tapThreshold && 
+          current.magnitude > prev.magnitude && 
+          current.magnitude > next.magnitude) {
+        
+        // Check if this is a new tap (not part of previous tap)
+        if (_detectedTaps.isEmpty || 
+            current.timestamp.difference(_detectedTaps.last.timestamp).inMilliseconds > 200) {
+          
+          // Analyze the tap characteristics
+          final tapAnalysis = _analyzeTapCharacteristics(current, i, recentData);
+          
+          setState(() {
+            _detectedTaps.add(TapEvent(
+              timestamp: current.timestamp,
+              magnitude: current.magnitude,
+              x: current.x,
+              y: current.y,
+              z: current.z,
+              analysis: tapAnalysis,
+            ));
+          });
+        }
+      }
+    }
+  }
+  
+  TapAnalysis _analyzeTapCharacteristics(
+      SensorDataPoint peakPoint, int peakIndex, List<SensorDataPoint> dataWindow) {
+    
+    // Calculate rise time (time to reach peak)
+    double riseTime = 0;
+    if (peakIndex > 0) {
+      final startTime = dataWindow[peakIndex - 1].timestamp;
+      riseTime = peakPoint.timestamp.difference(startTime).inMilliseconds.toDouble();
+    }
+    
+    // Calculate decay characteristics
+    double decayRate = 0;
+    if (peakIndex < dataWindow.length - 1) {
+      final nextPoint = dataWindow[peakIndex + 1];
+      final decayTime = nextPoint.timestamp.difference(peakPoint.timestamp).inMilliseconds;
+      decayRate = (peakPoint.magnitude - nextPoint.magnitude) / decayTime;
+    }
+    
+    // Calculate energy (area under curve around peak)
+    double energy = 0;
+    final windowStart = (peakIndex - 2).clamp(0, dataWindow.length - 1);
+    final windowEnd = (peakIndex + 2).clamp(0, dataWindow.length - 1);
+    
+    for (int i = windowStart; i <= windowEnd; i++) {
+      energy += dataWindow[i].magnitude;
+    }
+    
+    return TapAnalysis(
+      riseTime: riseTime,
+      decayRate: decayRate,
+      energy: energy,
+      peakSharpness: _calculatePeakSharpness(peakIndex, dataWindow),
+      frequencyContent: _calculateFrequencyContent(peakIndex, dataWindow),
+    );
+  }
+  
+  double _calculatePeakSharpness(int peakIndex, List<SensorDataPoint> data) {
+    if (peakIndex < 2 || peakIndex > data.length - 3) return 0;
+    
+    final peakValue = data[peakIndex].magnitude;
+    final prevAvg = (data[peakIndex - 1].magnitude + data[peakIndex - 2].magnitude) / 2;
+    final nextAvg = (data[peakIndex + 1].magnitude + data[peakIndex + 2].magnitude) / 2;
+    
+    final riseSharpness = peakValue - prevAvg;
+    final fallSharpness = peakValue - nextAvg;
+    
+    return (riseSharpness + fallSharpness) / 2;
+  }
+  
+  double _calculateFrequencyContent(int peakIndex, List<SensorDataPoint> data) {
+    // Simplified frequency analysis - look at variation in nearby points
+    if (peakIndex < 1 || peakIndex > data.length - 2) return 0;
+    
+    final variations = [
+      (data[peakIndex].magnitude - data[peakIndex - 1].magnitude).abs(),
+      (data[peakIndex + 1].magnitude - data[peakIndex].magnitude).abs(),
+    ];
+    
+    return variations.reduce((a, b) => a + b) / variations.length;
   }
 
   void _stopRecording() {
@@ -89,10 +199,11 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
     setState(() {});
   }
 
-  void _clearReadings() {
+  void _clearData() {
     setState(() {
       _accelerometerReadings.clear();
       _gyroscopeReadings.clear();
+      _detectedTaps.clear();
     });
   }
 
@@ -101,19 +212,13 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Sensor Data Analyzer'),
-        actions: [
-          IconButton(
-            icon: Icon(_isRecording ? Icons.pause : Icons.play_arrow),
-            onPressed: _isRecording ? _stopRecording : _startRecording,
-          ),
-        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Threshold selector
+            // Control Panel
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -121,16 +226,49 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Detection Settings',
+                      'Analysis Controls',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 10),
+                    
+                    // Collection controls
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (_isRecording) ...[
+                          ElevatedButton.icon(
+                            onPressed: _stopRecording,
+                            icon: const Icon(Icons.stop),
+                            label: const Text('Stop Collection'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ] else ...[
+                          ElevatedButton.icon(
+                            onPressed: _startRecording,
+                            icon: const Icon(Icons.play_arrow),
+                            label: const Text('Start Collection'),
+                          ),
+                        ],
+                        const SizedBox(width: 10),
+                        OutlinedButton(
+                          onPressed: _clearData,
+                          child: const Text('Clear Data'),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 15),
+                    
+                    // Threshold slider
                     Row(
                       children: [
-                        const Text('Tap Threshold:'),
+                        const Text('Detection Threshold:'),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Slider(
@@ -149,24 +287,12 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
                         Text('${_tapThreshold.round()}'),
                       ],
                     ),
+                    
                     const SizedBox(height: 10),
-                    Text(
-                      'Readings: ${_accelerometerReadings.length} accelerometer, ${_gyroscopeReadings.length} gyroscope',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
-                    ),
-                    if (_recordingStartTime != null) ...[
-                      const SizedBox(height: 5),
-                      Text(
-                        'Recording time: ${DateTime.now().difference(_recordingStartTime!).inSeconds}s',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
+                    
+                    // Stats
+                    Text('Collected Data: ${_accelerometerReadings.length} accel, ${_gyroscopeReadings.length} gyro points'),
+                    Text('Detected Taps: ${_detectedTaps.length}'),
                   ],
                 ),
               ),
@@ -174,40 +300,17 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
             
             const SizedBox(height: 20),
             
-            // Detected taps indicator
-            Card(
-              color: Colors.deepPurple.withOpacity(0.1),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Detected Taps',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    _buildTapIndicators(),
-                  ],
-                ),
-              ),
-            ),
-            
-            const SizedBox(height: 20),
-            
-            // Tabs for accelerometer and gyroscope data
+            // Visualization tabs
             Expanded(
               child: DefaultTabController(
-                length: 2,
+                length: 3,
                 child: Column(
                   children: [
                     const TabBar(
                       tabs: [
                         Tab(text: 'Accelerometer'),
                         Tab(text: 'Gyroscope'),
+                        Tab(text: 'Analysis'),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -215,11 +318,14 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
                       child: TabBarView(
                         children: [
                           _AccelerometerTab(
-                            readings: _accelerometerReadings,
-                            threshold: _tapThreshold,
+                            data: _accelerometerReadings,
+                            detectedTaps: _detectedTaps,
                           ),
                           _GyroscopeTab(
-                            readings: _gyroscopeReadings,
+                            data: _gyroscopeReadings,
+                          ),
+                          _AnalysisTab(
+                            detectedTaps: _detectedTaps,
                           ),
                         ],
                       ),
@@ -228,564 +334,343 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
                 ),
               ),
             ),
-            
-            const SizedBox(height: 20),
-            
-            // Action buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                ElevatedButton(
-                  onPressed: _clearReadings,
-                  child: const Text('Clear Data'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    // Export data functionality
-                    _exportData();
-                  },
-                  child: const Text('Export Data'),
-                ),
-              ],
-            ),
           ],
         ),
-      ),
-    );
-  }
-  
-  Widget _buildTapIndicators() {
-    // Count readings above threshold
-    int tapCount = _accelerometerReadings
-        .where((reading) => reading.magnitude > _tapThreshold)
-        .length;
-    
-    // Get highest magnitude reading
-    double maxMagnitude = 0.0;
-    if (_accelerometerReadings.isNotEmpty) {
-      maxMagnitude = _accelerometerReadings
-          .map((r) => r.magnitude)
-          .reduce((a, b) => a > b ? a : b);
-    }
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Readings above threshold: $tapCount'),
-        Text('Highest magnitude detected: ${maxMagnitude.toStringAsFixed(2)}'),
-        const SizedBox(height: 10),
-        if (tapCount > 0)
-          Container(
-            height: 20,
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: (tapCount / 50 * 100).clamp(0, 100),
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-  
-  void _exportData() {
-    // In a real app, you would export the data to a file or share it
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Data exported successfully!'),
       ),
     );
   }
 }
 
 class _AccelerometerTab extends StatelessWidget {
-  final List<SensorReading> readings;
-  final double threshold;
+  final List<SensorDataPoint> data;
+  final List<TapEvent> detectedTaps;
 
   const _AccelerometerTab({
-    required this.readings,
-    required this.threshold,
+    required this.data,
+    required this.detectedTaps,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (readings.isEmpty) {
+    if (data.isEmpty) {
       return const Center(
-        child: Text('No accelerometer data yet. Tap on the back of your phone to generate readings.'),
+        child: Text('No accelerometer data collected yet'),
       );
     }
 
-    return ListView.builder(
-      itemCount: readings.length,
-      itemBuilder: (context, index) {
-        final reading = readings[index];
-        final isAboveThreshold = reading.magnitude > threshold;
+    return Column(
+      children: [
+        // Line chart for accelerometer data
+        Expanded(
+          flex: 2,
+          child: _buildAccelerometerChart(data, detectedTaps),
+        ),
         
-        return Card(
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          color: isAboveThreshold ? Colors.red.withOpacity(0.2) : null,
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '${reading.timestamp.hour}:${reading.timestamp.minute}:${reading.timestamp.second}.${reading.timestamp.millisecond}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                      ),
-                    ),
-                    if (isAboveThreshold)
-                      const Icon(
-                        Icons.touch_app,
-                        color: Colors.red,
-                        size: 16,
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 5),
-                Text.rich(
-                  TextSpan(
-                    children: [
-                      const TextSpan(text: 'X: '),
-                      TextSpan(
-                        text: '${reading.x.toStringAsFixed(2)}  ',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const TextSpan(text: 'Y: '),
-                      TextSpan(
-                        text: '${reading.y.toStringAsFixed(2)}  ',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const TextSpan(text: 'Z: '),
-                      TextSpan(
-                        text: '${reading.z.toStringAsFixed(2)}',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Row(
-                  children: [
-                    const Text('Magnitude: '),
-                    Text(
-                      reading.magnitude.toStringAsFixed(2),
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: isAboveThreshold ? Colors.red : null,
-                      ),
-                    ),
-                    if (isAboveThreshold) ...[
-                      const SizedBox(width: 10),
-                      const Text('(TAP DETECTED)', style: TextStyle(color: Colors.red)),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 5),
-                // Progress bar showing magnitude relative to max threshold
-                LinearProgressIndicator(
-                  value: (reading.magnitude / 20.0).clamp(0.0, 1.0),
-                  backgroundColor: Colors.grey[300],
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    isAboveThreshold ? Colors.red : Colors.blue,
-                  ),
-                ),
+        const SizedBox(height: 20),
+        
+        // Raw data table
+        Expanded(
+          flex: 1,
+          child: _buildRawDataTable(data),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildAccelerometerChart(List<SensorDataPoint> data, List<TapEvent> taps) {
+    // Prepare chart data
+    final chartData = data.map((point) => ChartData(
+      timestamp: point.timestamp.millisecondsSinceEpoch,
+      value: point.magnitude,
+    )).toList();
+    
+    // TODO: Implement chart visualization
+    return const Center(
+      child: Text('Accelerometer Chart Visualization'),
+    );
+  }
+  
+  Widget _buildRawDataTable(List<SensorDataPoint> data) {
+    final displayData = data.length > 20 ? data.sublist(data.length - 20) : data;
+    
+    return ListView(
+      children: [
+        const Text(
+          'Recent Raw Data',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        DataTable(
+          columns: const [
+            DataColumn(label: Text('Time')),
+            DataColumn(label: Text('X')),
+            DataColumn(label: Text('Y')),
+            DataColumn(label: Text('Z')),
+            DataColumn(label: Text('Mag')),
+          ],
+          rows: displayData.map((point) {
+            return DataRow(
+              cells: [
+                DataCell(Text('${point.timestamp.second}.${point.timestamp.millisecond}')),
+                DataCell(Text(point.x.toStringAsFixed(2))),
+                DataCell(Text(point.y.toStringAsFixed(2))),
+                DataCell(Text(point.z.toStringAsFixed(2))),
+                DataCell(Text(point.magnitude.toStringAsFixed(2))),
               ],
-            ),
-          ),
-        );
-      },
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 }
 
 class _GyroscopeTab extends StatelessWidget {
-  final List<SensorReading> readings;
+  final List<SensorDataPoint> data;
 
-  const _GyroscopeTab({required this.readings});
+  const _GyroscopeTab({required this.data});
 
   @override
   Widget build(BuildContext context) {
-    if (readings.isEmpty) {
+    if (data.isEmpty) {
       return const Center(
-        child: Text('No gyroscope data yet. Rotate your phone to generate readings.'),
+        child: Text('No gyroscope data collected yet'),
       );
     }
 
-    return ListView.builder(
-      itemCount: readings.length,
-      itemBuilder: (context, index) {
-        final reading = readings[index];
+    return Column(
+      children: [
+        // Line chart for gyroscope data
+        Expanded(
+          flex: 2,
+          child: _buildGyroscopeChart(data),
+        ),
         
-        return Card(
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${reading.timestamp.hour}:${reading.timestamp.minute}:${reading.timestamp.second}.${reading.timestamp.millisecond}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text.rich(
-                  TextSpan(
-                    children: [
-                      const TextSpan(text: 'X: '),
-                      TextSpan(
-                        text: '${reading.x.toStringAsFixed(2)}  ',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const TextSpan(text: 'Y: '),
-                      TextSpan(
-                        text: '${reading.y.toStringAsFixed(2)}  ',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const TextSpan(text: 'Z: '),
-                      TextSpan(
-                        text: '${reading.z.toStringAsFixed(2)}',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Row(
-                  children: [
-                    const Text('Magnitude: '),
-                    Text(
-                      reading.magnitude.toStringAsFixed(2),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.deepPurple,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 5),
-                // Progress bar showing magnitude relative to max
-                LinearProgressIndicator(
-                  value: (reading.magnitude / 10.0).clamp(0.0, 1.0),
-                  backgroundColor: Colors.grey[300],
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.deepPurple),
-                ),
+        const SizedBox(height: 20),
+        
+        // Raw data table
+        Expanded(
+          flex: 1,
+          child: _buildRawDataTable(data),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildGyroscopeChart(List<SensorDataPoint> data) {
+    // TODO: Implement chart visualization
+    return const Center(
+      child: Text('Gyroscope Chart Visualization'),
+    );
+  }
+  
+  Widget _buildRawDataTable(List<SensorDataPoint> data) {
+    final displayData = data.length > 20 ? data.sublist(data.length - 20) : data;
+    
+    return ListView(
+      children: [
+        const Text(
+          'Recent Raw Data',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        DataTable(
+          columns: const [
+            DataColumn(label: Text('Time')),
+            DataColumn(label: Text('X')),
+            DataColumn(label: Text('Y')),
+            DataColumn(label: Text('Z')),
+            DataColumn(label: Text('Mag')),
+          ],
+          rows: displayData.map((point) {
+            return DataRow(
+              cells: [
+                DataCell(Text('${point.timestamp.second}.${point.timestamp.millisecond}')),
+                DataCell(Text(point.x.toStringAsFixed(2))),
+                DataCell(Text(point.y.toStringAsFixed(2))),
+                DataCell(Text(point.z.toStringAsFixed(2))),
+                DataCell(Text(point.magnitude.toStringAsFixed(2))),
               ],
-            ),
-          ),
-        );
-      },
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 }
 
-class SensorReading {
-  final DateTime timestamp;
-  final double x;
-  final double y;
-  final double z;
-  final double magnitude;
+class _AnalysisTab extends StatelessWidget {
+  final List<TapEvent> detectedTaps;
 
-  SensorReading({
-    required this.timestamp,
-    required this.x,
-    required this.y,
-    required this.z,
-    required this.magnitude,
-  });
-}
-
-class _TopReadingsTab extends StatelessWidget {
-  final List<SensorReading> readings;
-  final double threshold;
-
-  const _TopReadingsTab({
-    required this.readings,
-    required this.threshold,
-  });
+  const _AnalysisTab({required this.detectedTaps});
 
   @override
   Widget build(BuildContext context) {
-    if (readings.isEmpty) {
+    if (detectedTaps.isEmpty) {
       return const Center(
-        child: Text('No readings yet. Move or tap your phone to generate data.'),
+        child: Text('No taps detected yet. Start collecting data to see analysis.'),
       );
     }
 
-    return ListView.builder(
-      itemCount: readings.length,
-      itemBuilder: (context, index) {
-        final reading = readings[index];
-        final isAboveThreshold = reading.magnitude > threshold;
+    return ListView(
+      children: [
+        // Tap sequence visualization
+        const Text(
+          'Tap Sequence',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          height: 100,
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: detectedTaps.length,
+            itemBuilder: (context, index) {
+              final tap = detectedTaps[index];
+              return Container(
+                margin: const EdgeInsets.all(10),
+                width: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.deepPurple,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: Center,
+                    children: [
+                      Text(
+                        '${index + 1}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                        ),
+                      ),
+                      Text(
+                        tap.magnitude.toStringAsFixed(1),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
         
-        return Card(
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          color: isAboveThreshold ? Colors.red.withOpacity(0.2) : null,
+        const SizedBox(height: 20),
+        
+        // Detailed analysis
+        const Text(
+          'Detailed Analysis',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 10),
+        
+        // Tap timing analysis
+        Card(
           child: Padding(
-            padding: const EdgeInsets.all(12.0),
+            padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '#${index + 1} - ${reading.sensorType}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                      ),
-                    ),
-                    Text(
-                      '${reading.timestamp.hour}:${reading.timestamp.minute}:${reading.timestamp.second}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 5),
-                Text.rich(
-                  TextSpan(
-                    children: [
-                      const TextSpan(text: 'X: '),
-                      TextSpan(
-                        text: '${reading.x.toStringAsFixed(2)}  ',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const TextSpan(text: 'Y: '),
-                      TextSpan(
-                        text: '${reading.y.toStringAsFixed(2)}  ',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const TextSpan(text: 'Z: '),
-                      TextSpan(
-                        text: '${reading.z.toStringAsFixed(2)}',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Row(
-                  children: [
-                    const Text('Magnitude: '),
-                    Text(
-                      reading.magnitude.toStringAsFixed(2),
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: isAboveThreshold ? Colors.red : null,
-                      ),
-                    ),
-                    if (isAboveThreshold) ...[
-                      const SizedBox(width: 10),
-                      const Text('(ABOVE THRESHOLD)', style: TextStyle(color: Colors.red)),
-                    ],
-                  ],
-                ),
-                // Progress bar showing magnitude relative to max
-                const SizedBox(height: 5),
-                LinearProgressIndicator(
-                  value: (reading.magnitude / 50.0).clamp(0.0, 1.0),
-                  backgroundColor: Colors.grey[300],
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    isAboveThreshold ? Colors.red : Colors.blue,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _CurrentReadingsTab extends StatelessWidget {
-  final List<SensorReading> readings;
-  final double threshold;
-
-  const _CurrentReadingsTab({
-    required this.readings,
-    required this.threshold,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (readings.isEmpty) {
-      return const Center(
-        child: Text('No recent readings yet. Move or tap your phone to generate data.'),
-      );
-    }
-
-    return ListView.builder(
-      itemCount: readings.length,
-      itemBuilder: (context, index) {
-        final reading = readings[index];
-        final isAboveThreshold = reading.magnitude > threshold;
-        
-        return Card(
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          color: isAboveThreshold ? Colors.red.withOpacity(0.2) : null,
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '${reading.sensorType}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                      ),
-                    ),
-                    Text(
-                      '${reading.timestamp.hour}:${reading.timestamp.minute}:${reading.timestamp.second}.${reading.timestamp.millisecond.toString().substring(0, 2)}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 5),
-                Text.rich(
-                  TextSpan(
-                    children: [
-                      const TextSpan(text: 'X: '),
-                      TextSpan(
-                        text: '${reading.x.toStringAsFixed(2)}  ',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const TextSpan(text: 'Y: '),
-                      TextSpan(
-                        text: '${reading.y.toStringAsFixed(2)}  ',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const TextSpan(text: 'Z: '),
-                      TextSpan(
-                        text: '${reading.z.toStringAsFixed(2)}',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Row(
-                  children: [
-                    const Text('Magnitude: '),
-                    Text(
-                      reading.magnitude.toStringAsFixed(2),
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: isAboveThreshold ? Colors.red : null,
-                      ),
-                    ),
-                    if (isAboveThreshold) ...[
-                      const SizedBox(width: 10),
-                      const Text('(ABOVE THRESHOLD)', style: TextStyle(color: Colors.red)),
-                    ],
-                  ],
-                ),
-                // Progress bar showing magnitude relative to max
-                const SizedBox(height: 5),
-                LinearProgressIndicator(
-                  value: (reading.magnitude / 50.0).clamp(0.0, 1.0),
-                  backgroundColor: Colors.grey[300],
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    isAboveThreshold ? Colors.red : Colors.blue,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _AllReadingsTab extends StatelessWidget {
-  final List<SensorReading> readings;
-  final double threshold;
-
-  const _AllReadingsTab({
-    required this.readings,
-    required this.threshold,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (readings.isEmpty) {
-      return const Center(
-        child: Text('No readings yet. Move or tap your phone to generate data.'),
-      );
-    }
-
-    // Show last 100 readings
-    final displayReadings = readings.length > 100 ? readings.sublist(readings.length - 100) : readings;
-
-    return ListView.builder(
-      itemCount: displayReadings.length,
-      itemBuilder: (context, index) {
-        final reading = displayReadings[index];
-        final isAboveThreshold = reading.magnitude > threshold;
-        
-        return Card(
-          margin: const EdgeInsets.symmetric(vertical: 2),
-          child: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${reading.timestamp.hour}:${reading.timestamp.minute}:${reading.timestamp.second}',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ),
-                Text(
-                  '${reading.sensorType.substring(0, 1)}: ',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  reading.magnitude.toStringAsFixed(1),
+                const Text(
+                  'Timing Analysis',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: isAboveThreshold ? Colors.red : null,
                   ),
                 ),
+                const SizedBox(height: 10),
+                
+                if (detectedTaps.length > 1) ...[
+                  for (int i = 1; i < detectedTaps.length; i++)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                      child: Text(
+                        'Tap ${i} → Tap ${i + 1}: ${detectedTaps[i].timestamp.difference(detectedTaps[i - 1].timestamp).inMilliseconds}ms',
+                      ),
+                    ),
+                ] else
+                  const Text('Need at least 2 taps for timing analysis'),
               ],
             ),
           ),
-        );
-      },
+        ),
+        
+        const SizedBox(height: 20),
+        
+        // Individual tap analysis
+        const Text(
+          'Individual Tap Characteristics',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 10),
+        
+        ...detectedTaps.asMap().entries.map((entry) {
+          final index = entry.key;
+          final tap = entry.value;
+          return Card(
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Tap #${index + 1}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text('Timestamp: ${tap.timestamp.hour}:${tap.timestamp.minute}:${tap.timestamp.second}.${tap.timestamp.millisecond}'),
+                  const SizedBox(height: 5),
+                  Text('Magnitude: ${tap.magnitude.toStringAsFixed(2)}'),
+                  const SizedBox(height: 5),
+                  Text('Vector: (${tap.x.toStringAsFixed(2)}, ${tap.y.toStringAsFixed(2)}, ${tap.z.toStringAsFixed(2)})'),
+                  
+                  if (tap.analysis != null) ...[
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Advanced Analysis:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 5),
+                    Text('Rise Time: ${tap.analysis!.riseTime.toStringAsFixed(2)}ms'),
+                    Text('Decay Rate: ${tap.analysis!.decayRate.toStringAsFixed(4)}'),
+                    Text('Energy: ${tap.analysis!.energy.toStringAsFixed(2)}'),
+                    Text('Sharpness: ${tap.analysis!.peakSharpness.toStringAsFixed(2)}'),
+                    Text('Frequency Content: ${tap.analysis!.frequencyContent.toStringAsFixed(2)}'),
+                  ],
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ],
     );
   }
 }
 
-class SensorReading {
+// Data Models
+class SensorDataPoint {
   final DateTime timestamp;
   final double x;
   final double y;
@@ -793,12 +678,56 @@ class SensorReading {
   final double magnitude;
   final String sensorType;
 
-  SensorReading({
+  SensorDataPoint({
     required this.timestamp,
     required this.x,
     required this.y,
     required this.z,
     required this.magnitude,
     required this.sensorType,
+  });
+}
+
+class TapEvent {
+  final DateTime timestamp;
+  final double x;
+  final double y;
+  final double z;
+  final double magnitude;
+  final TapAnalysis? analysis;
+
+  TapEvent({
+    required this.timestamp,
+    required this.x,
+    required this.y,
+    required this.z,
+    required this.magnitude,
+    this.analysis,
+  });
+}
+
+class TapAnalysis {
+  final double riseTime;
+  final double decayRate;
+  final double energy;
+  final double peakSharpness;
+  final double frequencyContent;
+
+  TapAnalysis({
+    required this.riseTime,
+    required this.decayRate,
+    required this.energy,
+    required this.peakSharpness,
+    required this.frequencyContent,
+  });
+}
+
+class ChartData {
+  final int timestamp;
+  final double value;
+
+  ChartData({
+    required this.timestamp,
+    required this.value,
   });
 }
