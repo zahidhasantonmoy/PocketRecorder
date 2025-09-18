@@ -8,7 +8,7 @@ class PatternStorageService {
   PatternStorageService._internal();
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
-  final String _patternsKey = 'saved_patterns';
+  final String _patternsKey = 'custom_patterns';
 
   // Save a pattern
   Future<void> savePattern(PatternSignature pattern) async {
@@ -61,12 +61,20 @@ class PatternStorageService {
     }
   }
 
-  // Find matching pattern with 60% tolerance
-  Future<PatternSignature?> findMatchingPattern(PatternSignature inputPattern) async {
+  // Find matching pattern with tolerance
+  Future<PatternSignature?> findMatchingPattern(List<double> detectedTimestamps, {double tolerance = 0.6}) async {
     final List<PatternSignature> patterns = await getPatterns();
     
+    // Create a temporary pattern for comparison
+    final detectedPattern = PatternSignature(
+      id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
+      name: 'Detected Pattern',
+      timestamps: detectedTimestamps,
+      createdAt: DateTime.now(),
+    );
+    
     for (final pattern in patterns) {
-      if (pattern.matches(inputPattern, tolerance: 0.6)) {
+      if (pattern.matches(detectedPattern, tolerance: tolerance)) {
         return pattern;
       }
     }

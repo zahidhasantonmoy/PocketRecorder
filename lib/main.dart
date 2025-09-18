@@ -6,6 +6,7 @@ import 'screens/vault_screen.dart';
 import 'screens/pattern_settings_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/sensor_data_analyzer.dart';
+import 'screens/pattern_training_screen.dart';
 import 'services/background_pattern_service.dart';
 import 'services/sos_service.dart';
 import 'services/pattern_recording_service.dart';
@@ -42,7 +43,7 @@ class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
   @override
-  State<MyApp> createState() => _MyAppState();
+  State<MyApp> widget() => _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> {
@@ -87,6 +88,9 @@ class _MyAppState extends State<MyApp> {
       darkTheme: _buildTheme(Brightness.dark),
       themeMode: _getThemeMode(_settings.themeMode),
       home: const MainScreen(),
+      routes: {
+        '/pattern-training': (context) => const PatternTrainingScreen(),
+      },
     );
   }
   
@@ -116,7 +120,7 @@ class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  State<MainScreen> widget() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {

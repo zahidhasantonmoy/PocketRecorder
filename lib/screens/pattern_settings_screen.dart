@@ -5,13 +5,13 @@ import '../models/pattern_setting.dart';
 import '../services/pattern_storage_service.dart';
 import '../models/pattern_signature.dart';
 import 'sos_settings_screen.dart';
-import 'pattern_recording_screen.dart';
+import 'pattern_training_screen.dart';
 
 class PatternSettingsScreen extends StatefulWidget {
   const PatternSettingsScreen({super.key});
 
   @override
-  State<PatternSettingsScreen> createState() => _PatternSettingsScreenState();
+  State<PatternSettingsScreen> widget() => _PatternSettingsScreenState();
 }
 
 class _PatternSettingsScreenState extends State<PatternSettingsScreen> {
@@ -141,11 +141,11 @@ class _PatternSettingsScreenState extends State<PatternSettingsScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const PatternRecordingScreen(),
+                                  builder: (context) => const PatternTrainingScreen(),
                                 ),
                               ).then((_) => _loadCustomPatterns());
                             },
-                            child: const Text('Add New'),
+                            child: const Text('Train New'),
                           ),
                         ],
                       ),
@@ -169,7 +169,7 @@ class _PatternSettingsScreenState extends State<PatternSettingsScreen> {
                               ),
                               SizedBox(height: 5),
                               Text(
-                                'Tap "Add New" to record your first pattern',
+                                'Tap "Train New" to record your first pattern',
                                 style: TextStyle(
                                   color: Colors.grey,
                                 ),
@@ -246,7 +246,7 @@ class _PatternSettingItem extends StatefulWidget {
   });
 
   @override
-  State<_PatternSettingItem> createState() => _PatternSettingItemState();
+  State<_PatternSettingItem> widget() => _PatternSettingItemState();
 }
 
 class _PatternSettingItemState extends State<_PatternSettingItem> {
