@@ -5,6 +5,7 @@ import 'screens/home_screen.dart';
 import 'screens/vault_screen.dart';
 import 'screens/pattern_settings_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/sensor_data_analyzer.dart';
 import 'services/background_pattern_service.dart';
 import 'services/sos_service.dart';
 import 'services/pattern_recording_service.dart';
@@ -115,7 +116,7 @@ class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
   @override
-  State<MainScreen> widget() => _MainScreenState();
+  State<MainScreen> createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
@@ -159,6 +160,21 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ],
       ),
+      // Add debug menu button in top right corner for sensor analysis
+      floatingActionButton: _currentIndex == 3 // Only show on settings screen
+          ? FloatingActionButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SensorDataAnalyzer(),
+                  ),
+                );
+              },
+              child: const Icon(Icons.science),
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
     );
   }
 }

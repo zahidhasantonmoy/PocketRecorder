@@ -312,6 +312,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16.0),
                   child: Text(
+                    'Developer Tools',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ListTile(
+                  title: const Text('Sensor Data Analyzer'),
+                  subtitle: const Text('Analyze accelerometer and gyroscope data'),
+                  leading: const Icon(Icons.science),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const SensorDataAnalyzer(),
+                      ),
+                    );
+                  },
+                ),
+                const Divider(),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Text(
                     'About',
                     style: TextStyle(
                       fontSize: 18,
