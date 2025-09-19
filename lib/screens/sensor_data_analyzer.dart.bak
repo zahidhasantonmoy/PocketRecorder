@@ -22,8 +22,6 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
   bool _isProximitySupported = false;
   double _detectionThreshold = 6.0;
   DateTime? _recordingStartTime;
-  Timer? _samplingTimer;
-  UserAccelerometerEvent? _latestEvent;
 
   @override
   void initState() {
@@ -48,27 +46,18 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
       _recordingStartTime = DateTime.now();
     });
     
-    // Sample accelerometer at 2Hz (every 500ms) instead of as fast as possible
-    _samplingTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
-      if (_latestEvent != null) {
-        final event = _latestEvent!;
-        final magnitude = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
-        final reading = SensorReading(
-          timestamp: DateTime.now(),
-          x: event.x,
-          y: event.y,
-          z: event.z,
-          magnitude: magnitude,
-        );
-        
-        _processSensorReading(reading);
-        _latestEvent = null; // Reset after processing
-      }
-    });
-    
-    // Listen to accelerometer events but just store the latest one
+    // Listen to accelerometer events
     _accelerometerSubscription = userAccelerometerEvents.listen((event) {
-      _latestEvent = event; // Just store the latest event for sampling
+      final magnitude = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
+      final reading = SensorReading(
+        timestamp: DateTime.now(),
+        x: event.x,
+        y: event.y,
+        z: event.z,
+        magnitude: magnitude,
+      );
+      
+      _processSensorReading(reading);
     });
     
     // Listen to proximity events
@@ -76,8 +65,8 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
       _proximitySubscription = ProximitySensor.events.listen((event) {
         final reading = ProximityReading(
           timestamp: DateTime.now(),
-          distance: event > 0 ? 0.0 : 5.0, // When proximity is detected, distance is 0cm, otherwise 5cm
-          isNear: event > 0, // In the proximity_sensor package, > 0 means near
+          distance: event > 0 ? 0.0 : 5.0, // Simple representation: 0cm when near, 5cm when far
+          isNear: event > 0,
         );
         
         setState(() {
@@ -131,7 +120,6 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
     _isRecording = false;
     _accelerometerSubscription?.cancel();
     _proximitySubscription?.cancel();
-    _samplingTimer?.cancel();
     setState(() {});
   }
 
@@ -264,179 +252,182 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
               ),
               const SizedBox(height: 20),
             ],
-            
-            // Proximity sensor data
-            if (_isProximitySupported && _proximityReadings.isNotEmpty) ...[
+              
+              const SizedBox(height: 20),
+              
+              // Sensor data list
               const Text(
-                'Proximity Sensor Data',
+                'Sensor Data',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 10),
-              Container(
-                height: 100,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(10),
-                ),
+              Expanded(
                 child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _proximityReadings.length,
+                  itemCount: _sensorReadings.length,
                   itemBuilder: (context, index) {
-                    final reading = _proximityReadings[index];
-                    return Container(
-                      margin: const EdgeInsets.all(10),
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: reading.isNear ? Colors.deepPurple : Colors.blue,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            '${reading.distance.toStringAsFixed(1)}cm',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                    final reading = _sensorReadings[index];
+                    final isTap = _detectedTaps.any((tap) => 
+                        tap.timestamp.difference(reading.timestamp).inMilliseconds.abs() < 100);
+                    
+                    return Card(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      color: isTap ? Colors.red.withOpacity(0.2) : null,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '${reading.timestamp.hour}:${reading.timestamp.minute}:${reading.timestamp.second}.${reading.timestamp.millisecond}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                if (isTap)
+                                  const Icon(
+                                    Icons.touch_app,
+                                    color: Colors.red,
+                                    size: 16,
+                                  ),
+                              ],
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            reading.isNear ? 'NEAR' : 'FAR',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
+                            const SizedBox(height: 5),
+                            Text.rich(
+                              TextSpan(
+                                children: [
+                                  const TextSpan(text: 'X: '),
+                                  TextSpan(
+                                    text: '${reading.x.toStringAsFixed(2)}  ',
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  const TextSpan(text: 'Y: '),
+                                  TextSpan(
+                                    text: '${reading.y.toStringAsFixed(2)}  ',
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  const TextSpan(text: 'Z: '),
+                                  TextSpan(
+                                    text: '${reading.z.toStringAsFixed(2)}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 5),
+                            Row(
+                              children: [
+                                const Text('Magnitude: '),
+                                Text(
+                                  reading.magnitude.toStringAsFixed(2),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: isTap ? Colors.red : null,
+                                  ),
+                                ),
+                                if (isTap) ...[
+                                  const SizedBox(width: 10),
+                                  const Text('(TAP)', style: TextStyle(color: Colors.red)),
+                                ],
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   },
                 ),
               ),
+              
               const SizedBox(height: 20),
-            ],
-            
-            // Sensor data list
-            const Text(
-              'Sensor Data',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: ListView.builder(
-                itemCount: _sensorReadings.length,
-                itemBuilder: (context, index) {
-                  final reading = _sensorReadings[index];
-                  final isTap = _detectedTaps.any((tap) => 
-                      tap.timestamp.difference(reading.timestamp).inMilliseconds.abs() < 100);
-                  
-                  return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    color: isTap ? Colors.red.withOpacity(0.2) : null,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '${reading.timestamp.hour}:${reading.timestamp.minute}:${reading.timestamp.second}.${reading.timestamp.millisecond}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                ),
+              
+              // Proximity sensor data
+              if (_isProximitySupported && _proximityReadings.isNotEmpty) ...[
+                const Text(
+                  'Proximity Sensor Data',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _proximityReadings.length,
+                    itemBuilder: (context, index) {
+                      final reading = _proximityReadings[index];
+                      return Container(
+                        margin: const EdgeInsets.all(10),
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: reading.isNear ? Colors.deepPurple : Colors.blue,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              '${reading.distance.toStringAsFixed(1)}cm',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
                               ),
-                              if (isTap)
-                                const Icon(
-                                  Icons.touch_app,
-                                  color: Colors.red,
-                                  size: 16,
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 5),
-                          Text.rich(
-                            TextSpan(
-                              children: [
-                                const TextSpan(text: 'X: '),
-                                TextSpan(
-                                  text: '${reading.x.toStringAsFixed(2)}  ',
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                const TextSpan(text: 'Y: '),
-                                TextSpan(
-                                  text: '${reading.y.toStringAsFixed(2)}  ',
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                const TextSpan(text: 'Z: '),
-                                TextSpan(
-                                  text: '${reading.z.toStringAsFixed(2)}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ],
                             ),
-                          ),
-                          const SizedBox(height: 5),
-                          Row(
-                            children: [
-                              const Text('Magnitude: '),
-                              Text(
-                                reading.magnitude.toStringAsFixed(2),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: isTap ? Colors.red : null,
-                                ),
+                            const SizedBox(height: 4),
+                            Text(
+                              reading.isNear ? 'NEAR' : 'FAR',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
                               ),
-                              if (isTap) ...[
-                                const SizedBox(width: 10),
-                                const Text('(TAP)', style: TextStyle(color: Colors.red)),
-                              ],
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            
-            const SizedBox(height: 20),
-            
-            // Action buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                ElevatedButton(
-                  onPressed: _clearData,
-                  child: const Text('Clear Data'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 ),
-                ElevatedButton(
-                  onPressed: () {
-                    // Export data functionality
-                    _exportData();
-                  },
-                  child: const Text('Export Data'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    // Copy data to clipboard
-                    _copyDataToClipboard();
-                  },
-                  child: const Text('Copy Data'),
-                ),
+                const SizedBox(height: 20),
               ],
-            ),
-          ],
+              
+              // Action buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton(
+                    onPressed: _clearData,
+                    child: const Text('Clear Data'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      // Export data functionality
+                      _exportData();
+                    },
+                    child: const Text('Export Data'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      // Copy data to clipboard
+                      _copyDataToClipboard();
+                    },
+                    child: const Text('Copy Data'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -493,6 +484,38 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
       ),
     );
   }
+}
+    
+    if (_isProximitySupported && _proximityReadings.isNotEmpty) {
+      buffer.writeln('');
+      buffer.writeln('Proximity Sensor Data:');
+      buffer.writeln('Timestamp,Distance (cm),Status');
+      
+      for (final reading in _proximityReadings) {
+        buffer.writeln('${reading.timestamp},${reading.distance.toStringAsFixed(2)},${reading.isNear ? "NEAR" : "FAR"}');
+      }
+    }
+    
+    if (_detectedTaps.isNotEmpty) {
+      buffer.writeln('');
+      buffer.writeln('Detected Taps:');
+      buffer.writeln('Timestamp,X,Y,Z,Magnitude');
+      
+      for (final tap in _detectedTaps) {
+        buffer.writeln('${tap.timestamp},${tap.x.toStringAsFixed(4)},${tap.y.toStringAsFixed(4)},${tap.z.toStringAsFixed(4)},${tap.magnitude.toStringAsFixed(4)}');
+      }
+    }
+    
+    // Copy to clipboard
+    Clipboard.setData(ClipboardData(text: buffer.toString()));
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Data copied to clipboard!'),
+      ),
+    );
+  }
+}
 }
 
 class SensorReading {

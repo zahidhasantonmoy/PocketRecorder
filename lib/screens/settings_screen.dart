@@ -5,6 +5,8 @@ import '../services/app_settings_service.dart';
 import '../models/app_settings.dart';
 import '../services/background_pattern_service.dart';
 import 'developer_info_screen.dart';
+import 'sensor_data_analyzer.dart';
+// import 'advanced_sensor_analyzer.dart'; // Temporarily commented out due to compilation issues
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -333,6 +335,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     );
                   },
                 ),
+                // ListTile(
+                //   title: const Text('Advanced Sensor Analyzer'),
+                //   subtitle: const Text('Professional tap/slap analysis tools'),
+                //   leading: const Icon(Icons.analytics),
+                //   onTap: () {
+                //     Navigator.push(
+                //       context,
+                //       MaterialPageRoute(
+                //         builder: (context) => const AdvancedSensorAnalyzer(),
+                //       ),
+                //     );
+                //   },
+                // ),
                 const Divider(),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16.0),

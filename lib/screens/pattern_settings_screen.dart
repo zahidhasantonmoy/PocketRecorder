@@ -11,7 +11,7 @@ class PatternSettingsScreen extends StatefulWidget {
   const PatternSettingsScreen({super.key});
 
   @override
-  State<PatternSettingsScreen> widget() => _PatternSettingsScreenState();
+  State<PatternSettingsScreen> createState() => _PatternSettingsScreenState();
 }
 
 class _PatternSettingsScreenState extends State<PatternSettingsScreen> {
@@ -251,7 +251,7 @@ class _PatternSettingItem extends StatefulWidget {
   });
 
   @override
-  State<_PatternSettingItem> widget() => _PatternSettingItemState();
+  State<_PatternSettingItem> createState() => _PatternSettingItemState();
 }
 
 class _PatternSettingItemState extends State<_PatternSettingItem> {
