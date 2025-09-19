@@ -220,7 +220,7 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
             
             const SizedBox(height: 20),
             
-            // Detected taps visualization
+            // Detected taps list
             if (_detectedTaps.isNotEmpty) ...[
               const Text(
                 'Detected Taps',
@@ -231,32 +231,78 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
               ),
               const SizedBox(height: 10),
               Container(
-                height: 80,
+                height: 150,
                 decoration: BoxDecoration(
                   color: Colors.grey[200],
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
                   itemCount: _detectedTaps.length,
                   itemBuilder: (context, index) {
                     final tap = _detectedTaps[index];
-                    return Container(
-                      margin: const EdgeInsets.all(10),
-                      width: 60,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.deepPurple,
-                        border: Border.all(color: Colors.white, width: 2),
-                      ),
-                      child: Center(
-                        child: Text(
-                          '${index + 1}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20,
-                          ),
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      color: Colors.deepPurple.withOpacity(0.2),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Tap #${index + 1}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.deepPurple,
+                                  ),
+                                ),
+                                Text(
+                                  '${tap.timestamp.hour}:${tap.timestamp.minute}:${tap.timestamp.second}.${tap.timestamp.millisecond}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 5),
+                            Text.rich(
+                              TextSpan(
+                                children: [
+                                  const TextSpan(text: 'X: '),
+                                  TextSpan(
+                                    text: '${tap.x.toStringAsFixed(2)}  ',
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  const TextSpan(text: 'Y: '),
+                                  TextSpan(
+                                    text: '${tap.y.toStringAsFixed(2)}  ',
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  const TextSpan(text: 'Z: '),
+                                  TextSpan(
+                                    text: '${tap.z.toStringAsFixed(2)}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Row(
+                              children: [
+                                const Text('Magnitude: '),
+                                Text(
+                                  tap.magnitude.toStringAsFixed(2),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.deepPurple,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                     );
