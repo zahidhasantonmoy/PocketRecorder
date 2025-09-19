@@ -20,10 +20,12 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
   StreamSubscription<int>? _proximitySubscription;
   bool _isRecording = false;
   bool _isProximitySupported = false;
-  double _detectionThreshold = 6.0;
+  double _detectionThreshold = 4.0; // Lowered threshold for better sensitivity
   DateTime? _recordingStartTime;
   Timer? _samplingTimer;
   UserAccelerometerEvent? _latestEvent;
+  double _baselineMagnitude = 1.0; // Baseline for normalization
+  int _sampleCount = 0;
 
   @override
   void initState() {
@@ -109,13 +111,34 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
         _sensorReadings.removeAt(0);
       }
       
-      // Check for tap detection
-      if (reading.magnitude > _detectionThreshold) {
+      // Update baseline magnitude calculation with a moving average
+      _sampleCount++;
+      if (_sampleCount <= 10) {
+        // For the first 10 samples, calculate average to establish baseline
+        _baselineMagnitude = ((_baselineMagnitude * (_sampleCount - 1)) + reading.magnitude) / _sampleCount;
+      } else {
+        // After 10 samples, use a weighted moving average to adjust baseline
+        _baselineMagnitude = (_baselineMagnitude * 0.95) + (reading.magnitude * 0.05);
+      }
+      
+      // Use adaptive threshold based on baseline
+      final adaptiveThreshold = _baselineMagnitude * 2.5; // 2.5x the baseline as threshold
+      
+      // Improved tap detection algorithm
+      if (reading.magnitude > adaptiveThreshold && reading.magnitude > _detectionThreshold) {
         // Check if this is a distinct tap
-        // Allow taps closer together (100ms instead of 200ms) to detect rapid sequences
-        if (_detectedTaps.isEmpty || 
-            DateTime.now().difference(_detectedTaps.last.timestamp).inMilliseconds > 100) {
+        bool isDistinctTap = true;
+        if (_detectedTaps.isNotEmpty) {
+          final lastTap = _detectedTaps.last;
+          final timeDiff = DateTime.now().difference(lastTap.timestamp).inMilliseconds;
           
+          // Prevent duplicate detections of the same tap (minimum 50ms between taps)
+          if (timeDiff <= 50) {
+            isDistinctTap = false;
+          }
+        }
+        
+        if (isDistinctTap) {
           _detectedTaps.add(TapEvent(
             timestamp: DateTime.now(),
             x: reading.x,
@@ -123,6 +146,11 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
             z: reading.z,
             magnitude: reading.magnitude,
           ));
+          
+          // Limit detected taps to last 20 to prevent memory issues
+          if (_detectedTaps.length > 20) {
+            _detectedTaps.removeAt(0);
+          }
         }
       }
     });
