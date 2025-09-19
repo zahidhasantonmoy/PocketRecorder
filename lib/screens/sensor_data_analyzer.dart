@@ -112,8 +112,9 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
       // Check for tap detection
       if (reading.magnitude > _detectionThreshold) {
         // Check if this is a distinct tap
+        // Allow taps closer together (100ms instead of 200ms) to detect rapid sequences
         if (_detectedTaps.isEmpty || 
-            DateTime.now().difference(_detectedTaps.last.timestamp).inMilliseconds > 200) {
+            DateTime.now().difference(_detectedTaps.last.timestamp).inMilliseconds > 100) {
           
           _detectedTaps.add(TapEvent(
             timestamp: DateTime.now(),
