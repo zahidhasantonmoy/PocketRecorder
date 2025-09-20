@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:proximity_sensor/proximity_sensor.dart';
 import 'pattern_detector.dart';
 import '../services/settings_service.dart' as pattern_settings_service;
 import 'pattern_storage_service.dart';
@@ -23,6 +24,7 @@ class BackgroundPatternDetectionService {
   List<PatternSignature> _customPatterns = [];
   bool _isServiceRunning = false;
   bool _isDiscreetMode = false;
+  StreamSubscription<int>? _proximitySubscription; // For proximity sensor events
 
   Future<void> startBackgroundService() async {
     if (_isServiceRunning) return;
@@ -40,6 +42,9 @@ class BackgroundPatternDetectionService {
       onPatternDetected: _handlePatternDetected,
       onPatternTimeout: () {},
     );
+    
+    // Start listening to proximity sensor
+    _startProximityListening();
     
     _isServiceRunning = true;
     
@@ -165,6 +170,7 @@ class BackgroundPatternDetectionService {
 
   void stopBackgroundService() {
     _patternDetector?.stopListening();
+    _stopProximityListening();
     FlutterForegroundTask.stopService();
     _isServiceRunning = false;
   }
@@ -183,5 +189,23 @@ class BackgroundPatternDetectionService {
       stopBackgroundService();
       await startBackgroundService();
     }
+  }
+  
+  // Start listening to proximity sensor events
+  void _startProximityListening() {
+    try {
+      _proximitySubscription = ProximitySensor.events.listen((event) {
+        // Update the pattern detector with the proximity state
+        // In the proximity_sensor package, > 0 means near
+        _patternDetector?.updateProximityState(event > 0);
+      });
+    } catch (e) {
+      print('Proximity sensor not supported: $e');
+    }
+  }
+  
+  // Stop listening to proximity sensor events
+  void _stopProximityListening() {
+    _proximitySubscription?.cancel();
   }
 }

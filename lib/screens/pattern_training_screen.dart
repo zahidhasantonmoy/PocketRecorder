@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:math';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import '../services/pattern_storage_service.dart';
@@ -17,7 +17,9 @@ class _PatternTrainingScreenState extends State<PatternTrainingScreen> {
   StreamSubscription<UserAccelerometerEvent>? _accelerometerSubscription;
   bool _isRecording = false;
   String _patternName = '';
-  double _detectionThreshold = 6.0;
+  double _detectionThreshold = 1.2; // Lowered threshold for better sensitivity
+  double _prevMagnitude = 0.0;
+  double _prevDelta = 0.0;
   DateTime? _recordingStartTime;
   DateTime? _recordingEndTime;
   Timer? _autoStopTimer;
@@ -45,8 +47,22 @@ class _PatternTrainingScreenState extends State<PatternTrainingScreen> {
     _accelerometerSubscription = userAccelerometerEvents.listen((event) {
       final magnitude = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
       
+      // Apply exponential moving average filter
+      final filteredMagnitude = 0.7 * magnitude + 0.3 * _prevMagnitude;
+      _prevMagnitude = filteredMagnitude;
+      
+      // Check if the change is significant enough to be a tap
+      final delta = (filteredMagnitude - 9.81).abs(); // Subtract gravity
+      
+      // Apply high-pass filtering to focus on transient events
+      final deltaChange = delta - _prevDelta;
+      _prevDelta = delta;
+      
+      // Check if we have a sharp transient (tap signature)
+      final isTransient = deltaChange > 0.5 && delta > _detectionThreshold;
+      
       // Check for tap detection
-      if (magnitude > _detectionThreshold) {
+      if (isTransient) {
         // Check if this is a new tap (not part of previous tap)
         if (_detectedTaps.isEmpty || 
             DateTime.now().difference(_detectedTaps.last.timestamp).inMilliseconds > 200) {
@@ -514,6 +530,10 @@ class _PatternTrainingScreenState extends State<PatternTrainingScreen> {
         ),
       ),
     );
+  }
+  
+  double sqrt(double value) {
+    return value <= 0 ? 0 : math.sqrt(value);
   }
 }
 

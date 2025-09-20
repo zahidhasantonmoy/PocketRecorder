@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:math';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:proximity_sensor/proximity_sensor.dart';
@@ -567,6 +567,10 @@ class _SensorDataAnalyzerState extends State<SensorDataAnalyzer> {
         content: Text('Data copied to clipboard!'),
       ),
     );
+  }
+  
+  double sqrt(double value) {
+    return value <= 0 ? 0 : math.sqrt(value);
   }
 }
 

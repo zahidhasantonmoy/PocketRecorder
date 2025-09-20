@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:math';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:charts_flutter/flutter.dart' as charts;
@@ -780,6 +780,10 @@ class TapAnalysis {
     required this.peakSharpness,
     required this.frequencyContent,
   });
+  
+  double sqrt(double value) {
+    return value <= 0 ? 0 : math.sqrt(value);
+  }
 }
 
 class ChartData {

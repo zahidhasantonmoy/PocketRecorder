@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import '../models/pattern_signature.dart';
@@ -11,10 +12,12 @@ class PatternRecordingService with ChangeNotifier {
   bool _isRecording = false;
   List<double> _tapTimestamps = [];
   StreamSubscription<UserAccelerometerEvent>? _accelerometerSubscription;
+  int? _lastTapTime; // For debouncing
   
-  // Constants for tap detection
-  static const double _tapThreshold = 15.0; // Acceleration threshold for tap detection
+  // Improved constants for tap detection
+  static const double _tapThreshold = 1.2; // Lowered acceleration threshold for better tap detection
   static const int _maxTimeBetweenTaps = 1000; // Max time between taps in milliseconds
+  static const int _debounceTime = 200; // Time to ignore subsequent taps (debouncing)
 
   // Getters
   bool get isRecording => _isRecording;
@@ -57,6 +60,7 @@ class PatternRecordingService with ChangeNotifier {
     );
     
     _tapTimestamps.clear();
+    _lastTapTime = null; // Reset debouncing state
     notifyListeners();
     
     return pattern;
@@ -69,25 +73,58 @@ class PatternRecordingService with ChangeNotifier {
     _isRecording = false;
     _accelerometerSubscription?.cancel();
     _tapTimestamps.clear();
+    _lastTapTime = null; // Reset debouncing state
     notifyListeners();
   }
 
   // Process accelerometer events to detect taps
+  double _prevMagnitude = 0.0;
+  double _prevDelta = 0.0;
   void _processAccelerometerEvent(UserAccelerometerEvent event) {
     if (!_isRecording) return;
     
     // Calculate the magnitude of acceleration
-    final magnitude = event.x * event.x + event.y * event.y + event.z * event.z;
+    final magnitude = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
+    
+    // Apply exponential moving average filter
+    final filteredMagnitude = 0.7 * magnitude + 0.3 * _prevMagnitude;
+    _prevMagnitude = filteredMagnitude;
+    
+    // Check if the change is significant enough to be a tap
+    final delta = (filteredMagnitude - 9.81).abs(); // Subtract gravity
+    
+    // Apply high-pass filtering to focus on transient events
+    final deltaChange = delta - _prevDelta;
+    _prevDelta = delta;
+    
+    // Check if we have a sharp transient (tap signature)
+    final isTransient = deltaChange > 0.5 && delta > _tapThreshold;
     
     // Check if the acceleration exceeds the threshold
-    if (magnitude > _tapThreshold * _tapThreshold) {
+    if (isTransient) {
       _onTapDetected();
     }
   }
+  
+  // Helper function for square root
+  double sqrt(double value) {
+    return value <= 0 ? 0 : math.sqrt(value);
+  }
 
-  // Handle tap detection
+  // Handle tap detection with debouncing
   void _onTapDetected() {
     final now = DateTime.now().millisecondsSinceEpoch.toDouble();
+    
+    // Implement debouncing - ignore taps that are too close together
+    if (_lastTapTime != null) {
+      final timeSinceLastTap = (now - _lastTapTime!).toInt();
+      if (timeSinceLastTap < _debounceTime) {
+        return; // Ignore this tap, it's too soon after the last one
+      }
+    }
+    
+    // Update last tap time
+    _lastTapTime = now.toInt();
     
     // Add timestamp if it's the first tap or if enough time has passed since the last tap
     if (_tapTimestamps.isEmpty || 
@@ -100,6 +137,7 @@ class PatternRecordingService with ChangeNotifier {
   @override
   void dispose() {
     _accelerometerSubscription?.cancel();
+    _lastTapTime = null; // Reset debouncing state
     super.dispose();
   }
 }
