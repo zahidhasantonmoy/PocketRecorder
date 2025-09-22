@@ -7,6 +7,7 @@ import 'dart:io';
 import 'dart:async';
 import 'models/recording.dart';
 import 'services/video_recording_service.dart';
+import 'dart:io' show Platform;
 
 class RecorderProvider with ChangeNotifier {
   final FlutterSoundRecorder _recorder = FlutterSoundRecorder();
@@ -81,16 +82,40 @@ class RecorderProvider with ChangeNotifier {
     
     switch (functionType) {
       case 'audio':
-        permissions = [Permission.microphone, Permission.storage];
+        permissions = [Permission.microphone];
+        // For Android, we also need storage permissions
+        if (Platform.isAndroid) {
+          // For Android 10 and below, we need storage permission
+          // For Android 11 and above, we use scoped storage so don't need storage permission
+          permissions.add(Permission.storage);
+        }
         break;
       case 'video':
-        permissions = [Permission.camera, Permission.microphone, Permission.storage];
+        permissions = [Permission.camera, Permission.microphone];
+        // For Android, we also need storage permissions
+        if (Platform.isAndroid) {
+          // For Android 10 and below, we need storage permission
+          // For Android 11 and above, we use scoped storage so don't need storage permission
+          permissions.add(Permission.storage);
+        }
         break;
       case 'image':
-        permissions = [Permission.camera, Permission.storage];
+        permissions = [Permission.camera];
+        // For Android, we also need storage permissions
+        if (Platform.isAndroid) {
+          // For Android 10 and below, we need storage permission
+          // For Android 11 and above, we use scoped storage so don't need storage permission
+          permissions.add(Permission.storage);
+        }
         break;
       default:
-        permissions = [Permission.microphone, Permission.camera, Permission.storage];
+        permissions = [Permission.microphone, Permission.camera];
+        // For Android, we also need storage permissions
+        if (Platform.isAndroid) {
+          // For Android 10 and below, we need storage permission
+          // For Android 11 and above, we use scoped storage so don't need storage permission
+          permissions.add(Permission.storage);
+        }
     }
     
     // Check current permissions
@@ -128,8 +153,8 @@ class RecorderProvider with ChangeNotifier {
     
     try {
       // Create dedicated folder for recordings
-      final directory = await getExternalStorageDirectory();
-      final recordingsDir = Directory('${directory?.path}/PocketRecorder/Audio');
+      final directory = await getApplicationDocumentsDirectory();
+      final recordingsDir = Directory('${directory.path}/PocketRecorder/Audio');
       if (!(await recordingsDir.exists())) {
         await recordingsDir.create(recursive: true);
       }

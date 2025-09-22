@@ -64,8 +64,8 @@ class VideoRecordingService with ChangeNotifier {
     
     try {
       // Create dedicated folder for recordings
-      final directory = await getExternalStorageDirectory();
-      final recordingsDir = Directory('${directory?.path}/PocketRecorder/Video');
+      final directory = await getApplicationDocumentsDirectory();
+      final recordingsDir = Directory('${directory.path}/PocketRecorder/Video');
       if (!(await recordingsDir.exists())) {
         await recordingsDir.create(recursive: true);
       }
@@ -92,15 +92,12 @@ class VideoRecordingService with ChangeNotifier {
     
     try {
       // Stop recording
-      await _cameraController!.stopVideoRecording();
+      final XFile videoFile = await _cameraController!.stopVideoRecording();
       _isRecording = false;
       
-      // Save the video file
-      if (_videoFile != null) {
-        final savedFile = await _videoFile!.saveTo(_currentVideoPath);
-        notifyListeners();
-        return _currentVideoPath;
-      }
+      // The video file is already saved to _currentVideoPath by the camera controller
+      notifyListeners();
+      return _currentVideoPath;
     } catch (e) {
       print('Error stopping video recording: $e');
     }
@@ -151,8 +148,8 @@ class VideoRecordingService with ChangeNotifier {
       final XFile pictureFile = await _cameraController!.takePicture();
       
       // Create dedicated folder for recordings
-      final directory = await getExternalStorageDirectory();
-      final recordingsDir = Directory('${directory?.path}/PocketRecorder/Images');
+      final directory = await getApplicationDocumentsDirectory();
+      final recordingsDir = Directory('${directory.path}/PocketRecorder/Images');
       if (!(await recordingsDir.exists())) {
         await recordingsDir.create(recursive: true);
       }
