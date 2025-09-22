@@ -45,7 +45,7 @@ class RecorderProvider with ChangeNotifier {
     await _player.openPlayer();
     await _checkAndRequestPermissions();
     await loadRecordings();
-    await _videoService.initializeCamera();
+    // Camera will be initialized only when needed for recording
   }
   
   Future<void> _checkAndRequestPermissions() async {
@@ -127,9 +127,15 @@ class RecorderProvider with ChangeNotifier {
     }
     
     try {
-      final directory = await getApplicationDocumentsDirectory();
+      // Create dedicated folder for recordings
+      final directory = await getExternalStorageDirectory();
+      final recordingsDir = Directory('${directory?.path}/PocketRecorder/Audio');
+      if (!(await recordingsDir.exists())) {
+        await recordingsDir.create(recursive: true);
+      }
+      
       final fileName = 'recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
-      _currentRecordingPath = '${directory.path}/$fileName';
+      _currentRecordingPath = '${recordingsDir.path}/$fileName';
       
       await _recorder.startRecorder(
         toFile: _currentRecordingPath,
@@ -202,6 +208,11 @@ class RecorderProvider with ChangeNotifier {
     }
     
     try {
+      // Initialize camera if not already initialized
+      if (_videoService.cameraController == null || !_videoService.cameraController!.value.isInitialized) {
+        await _videoService.initializeCamera();
+      }
+      
       await _videoService.startRecording();
       _isRecording = _videoService.isRecording;
       
@@ -268,6 +279,11 @@ class RecorderProvider with ChangeNotifier {
     }
     
     try {
+      // Initialize camera if not already initialized
+      if (_videoService.cameraController == null || !_videoService.cameraController!.value.isInitialized) {
+        await _videoService.initializeCamera();
+      }
+      
       final imagePath = await _videoService.takePicture();
       
       if (imagePath != null) {

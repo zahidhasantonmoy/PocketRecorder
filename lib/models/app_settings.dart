@@ -11,6 +11,8 @@ class AppSettings {
   String storageLocation;
   bool backgroundServiceEnabled;
   bool discreetMode;
+  bool gestureControlsEnabled;
+  int volumeButtonPresses;
   
   AppSettings({
     this.deleteAfterSharing = false,
@@ -25,6 +27,8 @@ class AppSettings {
     this.storageLocation = 'app_vault',
     this.backgroundServiceEnabled = true,
     this.discreetMode = false,
+    this.gestureControlsEnabled = true,
+    this.volumeButtonPresses = 5,
   });
   
   Map<String, dynamic> toMap() {
@@ -41,6 +45,8 @@ class AppSettings {
       'storageLocation': storageLocation,
       'backgroundServiceEnabled': backgroundServiceEnabled,
       'discreetMode': discreetMode,
+      'gestureControlsEnabled': gestureControlsEnabled,
+      'volumeButtonPresses': volumeButtonPresses,
     };
   }
   
@@ -58,6 +64,8 @@ class AppSettings {
       storageLocation: map['storageLocation'] ?? 'app_vault',
       backgroundServiceEnabled: map['backgroundServiceEnabled'] ?? true,
       discreetMode: map['discreetMode'] ?? false,
+      gestureControlsEnabled: map['gestureControlsEnabled'] ?? true,
+      volumeButtonPresses: map['volumeButtonPresses'] ?? 5,
     );
   }
 }

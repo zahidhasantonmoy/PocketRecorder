@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:cross_file/cross_file.dart';
+import '../services/app_settings_service.dart';
+import '../models/app_settings.dart';
 
 class VideoRecordingService with ChangeNotifier {
   CameraController? _cameraController;
@@ -23,8 +25,23 @@ class VideoRecordingService with ChangeNotifier {
       final cameras = await availableCameras();
       if (cameras.isEmpty) return;
       
-      // Use the first camera (typically back camera)
-      final camera = cameras.first;
+      // Get user's preferred camera setting
+      final settings = await SettingsService().getAppSettings();
+      CameraDescription camera;
+      
+      if (settings.defaultCamera == 'front' && cameras.length > 1) {
+        // Try to find front camera
+        camera = cameras.firstWhere(
+          (cam) => cam.lensDirection == CameraLensDirection.front,
+          orElse: () => cameras.first,
+        );
+      } else {
+        // Use back camera (default)
+        camera = cameras.firstWhere(
+          (cam) => cam.lensDirection == CameraLensDirection.back,
+          orElse: () => cameras.first,
+        );
+      }
       
       _cameraController = CameraController(
         camera,
@@ -46,11 +63,16 @@ class VideoRecordingService with ChangeNotifier {
     }
     
     try {
-      // Get directory for saving videos
-      final directory = await getApplicationDocumentsDirectory();
+      // Create dedicated folder for recordings
+      final directory = await getExternalStorageDirectory();
+      final recordingsDir = Directory('${directory?.path}/PocketRecorder/Video');
+      if (!(await recordingsDir.exists())) {
+        await recordingsDir.create(recursive: true);
+      }
+      
       final formatter = DateFormat('yyyyMMdd_HHmmss');
       final fileName = 'video_${formatter.format(DateTime.now())}.mp4';
-      _currentVideoPath = '${directory.path}/$fileName';
+      _currentVideoPath = '${recordingsDir.path}/$fileName';
       
       // Start recording
       await _cameraController!.startVideoRecording();
@@ -128,11 +150,16 @@ class VideoRecordingService with ChangeNotifier {
       // Take picture
       final XFile pictureFile = await _cameraController!.takePicture();
       
-      // Save the picture
-      final directory = await getApplicationDocumentsDirectory();
+      // Create dedicated folder for recordings
+      final directory = await getExternalStorageDirectory();
+      final recordingsDir = Directory('${directory?.path}/PocketRecorder/Images');
+      if (!(await recordingsDir.exists())) {
+        await recordingsDir.create(recursive: true);
+      }
+      
       final formatter = DateFormat('yyyyMMdd_HHmmss');
       final fileName = 'image_${formatter.format(DateTime.now())}.jpg';
-      final imagePath = '${directory.path}/$fileName';
+      final imagePath = '${recordingsDir.path}/$fileName';
       
       await pictureFile.saveTo(imagePath);
       return imagePath;
@@ -143,8 +170,9 @@ class VideoRecordingService with ChangeNotifier {
   }
   
   // Dispose resources
-  Future<void> dispose() async {
-    await _cameraController?.dispose();
+  @override
+  void dispose() {
+    _cameraController?.dispose();
     _cameraController = null;
     super.dispose();
   }

@@ -12,6 +12,7 @@ import 'services/sos_service.dart';
 import 'services/pattern_recording_service.dart';
 import 'services/app_settings_service.dart';
 import 'models/app_settings.dart';
+import 'services/gesture_control_service.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
 
@@ -79,13 +80,29 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+  final GestureControlService _gestureService = GestureControlService();
   
   final List<Widget> _screens = [
     const HomeScreen(),
     const VaultScreen(),
     const PatternSettingsScreen(),
-    const SettingsScreen(),
+    SettingsScreen(gestureService: GestureControlService()), // Pass gesture service
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Start gesture control service
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _gestureService.startListening(context);
+    });
+  }
+
+  @override
+  void dispose() {
+    _gestureService.stopListening();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
