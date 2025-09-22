@@ -61,7 +61,7 @@ class _HomeScreenState extends State<HomeScreen>
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => SettingsScreen(gestureService: GestureControlService()),
+                  builder: (context) => const SettingsScreen(),
                 ),
               );
             },

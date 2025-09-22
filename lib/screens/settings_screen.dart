@@ -6,13 +6,10 @@ import '../models/app_settings.dart';
 import '../services/background_pattern_service.dart';
 import 'developer_info_screen.dart';
 import 'sensor_data_analyzer.dart';
-import '../services/gesture_control_service.dart';
 // import 'advanced_sensor_analyzer.dart'; // Temporarily commented out due to compilation issues
 
 class SettingsScreen extends StatefulWidget {
-  final GestureControlService gestureService;
-
-  const SettingsScreen({super.key, required this.gestureService});
+  const SettingsScreen({super.key});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -44,8 +41,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await SettingsService().saveAppSettings(_settings);
     // Update background service if settings changed
     await BackgroundPatternDetectionService().updateSettings();
-    // Update gesture control service if settings changed
-    await widget.gestureService.updateSettings();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Settings saved')),
@@ -314,48 +309,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _settings.discreetMode = value;
                     });
                   },
-                ),
-                const Divider(),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Text(
-                    'Gesture Controls',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                SwitchListTile(
-                  title: const Text('Enable Gesture Controls'),
-                  subtitle: const Text('Use volume buttons for quick recording'),
-                  value: _settings.gestureControlsEnabled,
-                  onChanged: (value) {
-                    setState(() {
-                      _settings.gestureControlsEnabled = value;
-                    });
-                  },
-                ),
-                ListTile(
-                  title: const Text('Volume Button Presses'),
-                  subtitle: Text('${_settings.volumeButtonPresses} presses to trigger recording'),
-                  trailing: DropdownButton<int>(
-                    value: _settings.volumeButtonPresses,
-                    items: const [
-                      DropdownMenuItem(value: 3, child: Text('3 presses')),
-                      DropdownMenuItem(value: 4, child: Text('4 presses')),
-                      DropdownMenuItem(value: 5, child: Text('5 presses')),
-                      DropdownMenuItem(value: 6, child: Text('6 presses')),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() {
-                          _settings.volumeButtonPresses = value;
-                        });
-                      }
-                    },
-                  ),
                 ),
                 const Divider(),
                 const Padding(
